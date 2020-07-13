@@ -1,0 +1,14 @@
+{
+  "extends": "@snowpack/app-scripts-lit-element",
+  "scripts": {},
+  "plugins": ["@snowpack/plugin-parcel"],
+  "devOptions": {
+    "port": 5000
+  },
+  "proxy": {
+    "/api": "http://localhost:8000"
+  },
+  "installOptions": {
+    "sourceMap": true
+  }
+}

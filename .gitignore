@@ -1,4 +1,7 @@
 __pycache__
 .mypy_cache
+.vscode
 build
 *.tar.gz
+*.env
+node_modules/

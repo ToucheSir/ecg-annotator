@@ -3,9 +3,15 @@ import uPlot from "uplot";
 
 const DEFAULT_SAMPLE_RATE = 240;
 
+function cellCount(min: number, max: number, scale: number = 1) {
+  return Math.ceil(Math.max(Math.abs(min), max) * scale) / scale;
+}
+
 @customElement("signal-view")
 export default class SignalView extends LitElement {
   private view?: uPlot;
+  // set to 2+ for tighter y-axis clamping
+  private scaleFactor = 1;
 
   @property()
   signals: any = {};
@@ -15,32 +21,58 @@ export default class SignalView extends LitElement {
 
   updateData() {
     if (this.view && this.signals && this.signals.I) {
-      const signal = this.signals.I.map((x: number) => x);
+      // TODO what if we want to display another lead or >1 lead?
+      const signal = this.signals.I;
       const index = signal.map((_: any, i: number) => i / this.sampleRate);
       this.view.setData([index, signal]);
+
+      const { width, height } = this.view;
+      const yCells = cellCount(
+        Math.min.apply(null, signal),
+        Math.max.apply(null, signal),
+        this.scaleFactor
+      );
+      // 10s * 5 cells/s or 0.2s/cell
+      const yMax = (yCells * width) / 50;
+      // Height of axes labels, tooltips, etc.
+      // N.B. b(ounding) box dimensions are not pre-scaled by devicePixelRatio
+      const yDiff = Math.abs(height - this.view.bbox.height / devicePixelRatio);
+      this.view.setSize({
+        width,
+        height: 4 * yMax + yDiff,
+      });
     }
   }
 
   firstUpdated() {
-    const yMax = 3;
     const width = this.clientWidth;
-    const height = width / yMax;
     this.view = new uPlot(
       {
         width,
-        height,
+        // 0 initial height helps with cell calculations later
+        height: 0,
         series: [
           {
             value: (_, rawValue) => rawValue.toFixed(2) + "s",
           },
           {
             label: "Lead I",
-            width: 2,
+            width: 1.5 / devicePixelRatio,
             paths: smoothPath,
             value: (_, rawValue) => rawValue.toFixed(2) + "mV",
           },
         ],
-        scales: { x: { time: true }, y: { range: [-yMax, yMax] } },
+        scales: {
+          x: { time: true },
+          y: {
+            // uPlot resets the y-axis after a double-click zoom out in the x-axis (!),
+            // so we have to enforce cell clamping here
+            range: (_, newMin: number, newMax: number) => {
+              const yCells = cellCount(newMin, newMax, this.scaleFactor);
+              return [-yCells, yCells];
+            },
+          },
+        },
         axes: [
           {
             space: 1,
@@ -91,7 +123,6 @@ function smoothPath(u: uPlot, sidx: number, i0: number, i1: number) {
 
   const stroke = new Path2D();
   stroke.moveTo(xdata[0], ydata[0]);
-
   for (let i = i0; i <= i1 - 1; i++) {
     let x1 = u.valToPos(xdata[i + 1], scaleX, true);
     let y1 = u.valToPos(ydata[i + 1], scaleY, true);
@@ -99,16 +130,11 @@ function smoothPath(u: uPlot, sidx: number, i0: number, i1: number) {
   }
 
   const fill = new Path2D(stroke);
-
   let minY = u.valToPos(u.scales[scaleY].min!, scaleY, true);
   let minX = u.valToPos(u.scales[scaleX].min!, scaleX, true);
   let maxX = u.valToPos(u.scales[scaleX].max!, scaleX, true);
-
   fill.lineTo(maxX, minY);
   fill.lineTo(minX, minY);
 
-  return {
-    stroke,
-    fill,
-  };
+  return { stroke, fill };
 }

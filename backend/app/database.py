@@ -23,9 +23,9 @@ class DatabaseContext:
             password=settings.db_pass,
         )
         db: Database = self.client[settings.db_name]
-        self.annotators: Collection = db.get_collection("annotator")
+        self.annotators: Collection = db.get_collection("annotators")
         self.segments: Collection = db.get_collection(settings.db_segment_collection)
-        self.audit_events: Collection = db.get_collection("audit_event")
+        self.audit_events: Collection = db.get_collection("audit_events")
 
     def __enter__(self):
         return self

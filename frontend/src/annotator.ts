@@ -1,5 +1,6 @@
 import { LitElement, html, customElement, property, css } from "lit-element";
 import { repeat } from "lit-html/directives/repeat";
+import { live } from "lit-html/directives/live";
 import hotkeys from "hotkeys-js";
 
 import "./signal-view";
@@ -97,7 +98,7 @@ export default class AnnotatorApp extends LitElement {
       const keyValue = Number.parseInt(evt.key, 10);
       if (
         Number.isInteger(keyValue) &&
-        keyValue > 1 &&
+        keyValue >= 1 &&
         keyValue <= classes.length
       ) {
         this.saveAnnotation(classes[keyValue - 1].value);
@@ -181,19 +182,19 @@ export default class AnnotatorApp extends LitElement {
           .signals=${this.currentSegment?.signals}
         ></signal-view>
         <div id="button-bar">
-          ${classes.map(
+          ${repeat(
+            classes,
             (c, i) => html`
               <div>
                 <input
                   type="radio"
                   name="label"
                   value=${c.name}
-                  .checked=${c.value === annotation?.label}
+                  .checked=${live(c.value === annotation?.label)}
                   @change="${(evt: InputEvent) => {
-                    this.saveAnnotation(c.value);
-                    // Prevent arrow keys scrolling through radio buttons
+                    // Prevent arrow keys scrolling through radio button
                     (evt.target as HTMLInputElement).blur();
-                    return false;
+                    this.saveAnnotation(c.value);
                   }}"
                 />
                 ${c.name}<kbd>${i + 1}</kbd>

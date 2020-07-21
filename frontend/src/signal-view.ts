@@ -19,7 +19,7 @@ export default class SignalView extends LitElement {
   @property({ type: Number })
   sampleRate: number = DEFAULT_SAMPLE_RATE;
 
-  updateData() {
+  updateView() {
     if (this.view && this.signals && this.signals.I) {
       // TODO what if we want to display another lead or >1 lead?
       const signal = this.signals.I;
@@ -97,12 +97,12 @@ export default class SignalView extends LitElement {
       [[], []],
       this.renderRoot.querySelector(".chart-root") as HTMLElement
     );
-    this.updateData();
+    this.updateView();
   }
 
   updated(changedProps: Map<string | number | symbol, unknown>) {
     super.updated(changedProps);
-    this.updateData();
+    this.updateView();
   }
 
   render() {

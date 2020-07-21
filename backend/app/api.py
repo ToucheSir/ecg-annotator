@@ -37,7 +37,8 @@ async def audit_handler(
         body = await request.json()
 
     audit_event = AuditEvent(
-        timestamp=datetime.now(),
+        # Ref. https://api.mongodb.com/python/current/examples/datetimes.html#basic-usage
+        timestamp=datetime.utcnow(),
         route=request["endpoint"].__name__,
         url=str(request.url),
         path_params=request.path_params,

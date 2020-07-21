@@ -76,4 +76,3 @@ class DatabaseContext:
 
     async def add_audit_event(self, event: AuditEvent):
         await self.audit_events.insert_one(event.dict())
-

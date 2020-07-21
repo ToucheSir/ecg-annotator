@@ -9,6 +9,7 @@ from fastapi import (
     Depends,
     Query,
     HTTPException,
+    status,
 )
 from fastapi.routing import APIRoute
 from bson import ObjectId
@@ -17,7 +18,12 @@ from app.config import Settings, get_settings
 from app.models import *
 from app.database import DatabaseContext
 
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from passlib.context import CryptContext
+import secrets
 
+security = HTTPBasic()
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 router = APIRouter()
 
 
@@ -47,6 +53,35 @@ async def audit_handler(
 
     background.add_task(db.add_audit_event, audit_event)
 
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+
+async def get_user(db, username: str):
+    users: Users = await db.list_annotators()
+    for user in users:
+        if (username == user.username):
+            return user
+    return False
+
+async def get_current_username(
+    credentials: HTTPBasicCredentials = Depends(security),
+    db: DatabaseContext = Depends(get_db)
+):
+    user: User = await get_user(db, credentials.username)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    if not (credentials.password == "test"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return credentials.username
 
 @router.get("/annotators")
 async def list_annotators(db: DatabaseContext = Depends(get_db)) -> List[Annotator]:
@@ -54,7 +89,9 @@ async def list_annotators(db: DatabaseContext = Depends(get_db)) -> List[Annotat
 
 
 @router.get("/segments/count")
-async def get_segment_count(db: DatabaseContext = Depends(get_db)):
+async def get_segment_count(
+    db: DatabaseContext = Depends(get_db),
+):
     return await db.get_segment_count()
 
 
@@ -64,6 +101,7 @@ async def list_segments(
     after: Optional[str] = Query(None),
     limit: int = Query(10),
     db: DatabaseContext = Depends(get_db),
+    username: str = Depends(get_current_username)
 ):
     try:
         if before:

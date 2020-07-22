@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Optional, Any, Union, Mapping
-from pydantic import BaseModel, BaseConfig, Field, validator
+from pydantic import BaseModel, BaseConfig, Field, validator, SecretStr
 from bson import ObjectId
 
 
@@ -18,6 +18,7 @@ class Annotator(HasId):
     # e.g. dmaslove, plaird, ssibley
     username: str
     designation: str
+    hashed_password: SecretStr
 
 
 DEFAULT_SCHEMA = "CCDEF-1.1"

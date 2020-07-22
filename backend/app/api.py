@@ -59,7 +59,6 @@ async def verify_password(plain_password, hashed_password):
 async def get_user(db, username: str):
     users: Users = await db.list_annotators()
     for user in users:
-        print(user)
         if (username == user.username):
             return user
     return False
@@ -69,8 +68,7 @@ async def get_current_username(
     db: DatabaseContext = Depends(get_db)
 ):
     user: User = await get_user(db, credentials.username)
-    print(user)
-    password: Password = await verify_password(credentials.password, "ac") #"ac" should be user.hashed_password once field is accsessable
+    password: Password = await verify_password(credentials.password, user.hashed_password.get_secret_value())
     print(password)
     if not user or not password:
         print("Wrong")
@@ -82,7 +80,10 @@ async def get_current_username(
     return credentials.username
 
 @router.get("/annotators")
-async def list_annotators(db: DatabaseContext = Depends(get_db)) -> List[Annotator]:
+async def list_annotators(
+    db: DatabaseContext = Depends(get_db),
+    username: str = Depends(get_current_username)
+) -> List[Annotator]:
     return await db.list_annotators()
 
 

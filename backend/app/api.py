@@ -56,22 +56,31 @@ async def verify_password(plain_password, hashed_password):
     return (hashlib.sha256(plain_password.encode()).hexdigest() == hashed_password)
 
 
-async def get_user(db, username: str):
-    users: Users = await db.list_annotators()
-    for user in users:
-        if (username == user.username):
-            return user
-    return False
+# async def get_user(db, username: str):
+#     users: Users = await db.list_annotators()
+#     for user in users:
+#         print(user.name)
+#         if (username == user.username):
+#             return user
+#     return False
 
 async def get_current_username(
     credentials: HTTPBasicCredentials = Depends(security),
     db: DatabaseContext = Depends(get_db)
 ):
-    user: User = await get_user(db, credentials.username)
-    password: Password = await verify_password(credentials.password, user.hashed_password.get_secret_value())
-    print(password)
-    if not user or not password:
-        print("Wrong")
+    user: User = await db.get_user(credentials.username)
+    user_found = False
+    for a in user:
+        accessible_user = a
+        user_found = True
+    if not user_found:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    password: Password = await verify_password(credentials.password, accessible_user.hashed_password.get_secret_value())
+    if not password:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",

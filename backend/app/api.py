@@ -52,9 +52,8 @@ async def audit_handler(
 
     background.add_task(db.add_audit_event, audit_event)
 
-async def verify_password(plain_password, hashed_password):
+def verify_password(plain_password, hashed_password):
     return (hashlib.sha256(plain_password.encode()).hexdigest() == hashed_password)
-
 
 # async def get_user(db, username: str):
 #     users: Users = await db.list_annotators()
@@ -68,18 +67,14 @@ async def get_current_username(
     credentials: HTTPBasicCredentials = Depends(security),
     db: DatabaseContext = Depends(get_db)
 ):
-    user: User = await db.get_user(credentials.username)
-    user_found = False
-    for a in user:
-        accessible_user = a
-        user_found = True
-    if not user_found:
+    user: Annotator = await db.get_user(credentials.username)
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Basic"},
         )
-    password: Password = await verify_password(credentials.password, accessible_user.hashed_password.get_secret_value())
+    password = verify_password(credentials.password, user[0].hashed_password.get_secret_value())
     if not password:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

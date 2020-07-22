@@ -19,11 +19,10 @@ from app.models import *
 from app.database import DatabaseContext
 
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from passlib.context import CryptContext
+import hashlib
 import secrets
 
 security = HTTPBasic()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 router = APIRouter()
 
 
@@ -53,13 +52,14 @@ async def audit_handler(
 
     background.add_task(db.add_audit_event, audit_event)
 
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+async def verify_password(plain_password, hashed_password):
+    return (hashlib.sha256(plain_password.encode()).hexdigest() == hashed_password)
 
 
 async def get_user(db, username: str):
     users: Users = await db.list_annotators()
     for user in users:
+        print(user)
         if (username == user.username):
             return user
     return False
@@ -69,13 +69,11 @@ async def get_current_username(
     db: DatabaseContext = Depends(get_db)
 ):
     user: User = await get_user(db, credentials.username)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Basic"},
-        )
-    if not (credentials.password == "test"):
+    print(user)
+    password: Password = await verify_password(credentials.password, "ac") #"ac" should be user.hashed_password once field is accsessable
+    print(password)
+    if not user or not password:
+        print("Wrong")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -91,6 +89,7 @@ async def list_annotators(db: DatabaseContext = Depends(get_db)) -> List[Annotat
 @router.get("/segments/count")
 async def get_segment_count(
     db: DatabaseContext = Depends(get_db),
+    username: str = Depends(get_current_username)
 ):
     return await db.get_segment_count()
 
@@ -119,6 +118,7 @@ async def get_segment(
     annotator_username: str = Query(None, alias="annotator"),
     db: DatabaseContext = Depends(get_db),
     settings: Settings = Depends(get_settings),
+    username: str = Depends(get_current_username)
 ):
     segment: AnnotatedSegment = await db.get_segment(ObjectId(segment_id))
     annotation = segment.annotations.get(annotator_username)
@@ -134,6 +134,7 @@ async def update_segment_annotations(
     annotator_username: str,
     annotation: Annotation,
     db: DatabaseContext = Depends(get_db),
+    username: str = Depends(get_current_username)
 ):
     try:
         await db.update_annotation(ObjectId(segment_id), annotator_username, annotation)

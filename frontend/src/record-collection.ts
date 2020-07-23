@@ -20,14 +20,16 @@ export interface SegmentCollectionCursor
 
 export default async function createSegmentCollection(
   baseUrl: URL,
+  startId?: string,
   chunkSize: number = 10
 ): Promise<SegmentCollectionCursor> {
   const countUrl = new URL("count", baseUrl.href + "/");
+  if (startId) countUrl.searchParams.set("start", startId);
   // Actual total count
   const countRes = await fetch(countUrl.href);
-  const count = await countRes.json();
+  const [subCount, count] = await countRes.json();
 
-  let currentChunk = await fetchNextChunk();
+  let currentChunk = await fetchNextChunk(startId);
   let prevChunk = currentChunk.length
     ? await fetchPrevChunk(currentChunk[0]._id)
     : [];
@@ -50,7 +52,7 @@ export default async function createSegmentCollection(
   }
 
   // TODO what if we start partway through the collection?
-  let position = -1;
+  let position = subCount - 1;
   let chunkIndex = -1;
   return {
     async previous() {

@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
 # @Author: Alex Hamilton - https://github.com/alexhamiltonRN
 # @Date: 2020-01-29
-from typing import List, Dict
+from typing import List, Tuple
 
 import pymongo
 from pymongo.database import Database
 from pymongo.collection import Collection
-from pymongo.errors import WriteError
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClient
 
@@ -15,8 +14,8 @@ from app.models import *
 
 
 class DatabaseContext:
-    def __init__(self, settings=get_settings()):
-        self.client = AsyncIOMotorClient(
+    def __init__(self, settings: Settings = get_settings()):
+        self.client: pymongo.MongoClient = AsyncIOMotorClient(
             host=settings.db_host,
             authSource=settings.db_name,
             username=settings.db_user,
@@ -41,8 +40,14 @@ class DatabaseContext:
         res = self.annotators.find(projection={"hashed_password": False})
         return [Annotator(**a) async for a in res]
 
-    async def get_segment_count(self) -> int:
-        return await self.segments.count_documents(filter={})
+    async def get_segment_count(self, start: Optional[str] = None) -> Tuple[int, int]:
+        total_count = await self.segments.count_documents(filter={})
+        sub_count = 0
+        if start is not None:
+            sub_count = await self.segments.count_documents(
+                filter={"_id": {"$lt": ObjectId(start)}}
+            )
+        return sub_count, total_count
 
     async def list_segments(
         self, after: ObjectId = None, before: ObjectId = None, limit: int = 10
@@ -72,11 +77,18 @@ class DatabaseContext:
         self, id: ObjectId, annotator: str, annotation: Annotation
     ):
         assert annotator, "no annotator specified"
-        await self.segments.update_one(
-            {"_id": id},
-            # TODO (brian): is there a better way to specify a nested path?
-            {"$set": {"annotations." + annotator: annotation.dict()}},
-        )
+        async with await self.client.start_session() as s:
+            await self.segments.update_one(
+                {"_id": id},
+                # TODO (brian): is there a better way to specify a nested path?
+                {"$set": {"annotations." + annotator: annotation.dict()}},
+                session=s,
+            )
+            await self.annotators.update_one(
+                {"username": annotator},
+                {"$set": {"last_annotated_segment": id}},
+                session=s,
+            )
 
     async def add_audit_event(self, event: AuditEvent):
         await self.audit_events.insert_one(event.dict())

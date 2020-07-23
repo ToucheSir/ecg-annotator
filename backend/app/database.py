@@ -33,12 +33,12 @@ class DatabaseContext:
     def __exit__(self, exc_type, exc_value, traceback):
         self.client.close()
 
-    async def get_user(self, username: str ):
-        res = self.annotators.find({"username": username})
-        return [Annotator(**a) async for a in res]
+    async def get_annotator(self, username: str) -> Annotator:
+        res = await self.annotators.find_one({"username": username})
+        return Annotator(**res)
 
     async def list_annotators(self) -> List[Annotator]:
-        res = self.annotators.find()
+        res = self.annotators.find(projection={"hashed_password": False})
         return [Annotator(**a) async for a in res]
 
     async def get_segment_count(self) -> int:

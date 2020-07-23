@@ -18,7 +18,7 @@ class Annotator(HasId):
     # e.g. dmaslove, plaird, ssibley
     username: str
     designation: str
-    hashed_password: SecretStr
+    hashed_password: Optional[SecretStr]
 
 
 DEFAULT_SCHEMA = "CCDEF-1.1"

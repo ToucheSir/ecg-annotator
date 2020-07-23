@@ -30,9 +30,6 @@ export default class AnnotatorApp extends LitElement {
   currentSegment?: Segment;
 
   @property({ attribute: false })
-  annotators: Annotator[] = [];
-
-  @property({ attribute: false })
   annotator?: Annotator;
 
   static styles = css`
@@ -112,8 +109,8 @@ export default class AnnotatorApp extends LitElement {
   }
 
   async firstUpdated() {
-    const annRes = await fetch("/api/annotators");
-    this.annotators = await annRes.json();
+    const annRes = await fetch("/api/annotators/me");
+    this.annotator = await annRes.json();
     this.segments = await createSegmentCollection(
       new URL("/api/segments", location.href)
     );
@@ -141,21 +138,16 @@ export default class AnnotatorApp extends LitElement {
     }
   }
 
-  private async selectAnnotator(evt: InputEvent) {
-    const annotatorId = (evt.target as HTMLSelectElement).value;
-    this.annotator = this.annotators.find((a) => a._id == annotatorId);
-  }
-
   private async saveAnnotation(label: string) {
     if (!this.annotator || !this.currentSegment) {
       throw ReferenceError("no annotator and record selected");
     }
 
-    const annotator = this.annotator.username;
+    const { username } = this.annotator;
     const dataUrl = `/api/segments/${this.currentSegment._id}`;
-    const annotationUrl = `${dataUrl}/annotations/${annotator}`;
+    const annotationUrl = `${dataUrl}/annotations/${username}`;
     const annotation = { label, confidence: 1 };
-    this.currentSegment.annotations[annotator] = annotation;
+    this.currentSegment.annotations[username] = annotation;
     this.nextRecord();
     return fetch(annotationUrl, {
       method: "PUT",
@@ -174,7 +166,7 @@ export default class AnnotatorApp extends LitElement {
       ];
       annHeader = html`
         <span id="header">
-          Segment ${position + 1} / ${this.segments?.length}
+          | Segment ${position + 1} / ${this.segments?.length}
         </span>
       `;
       annPanel = html`<signal-view
@@ -208,17 +200,7 @@ export default class AnnotatorApp extends LitElement {
       <div id="app">
         <div>
           <div style="display: flex; justify-content: center">
-            <select
-              @change=${this.selectAnnotator}
-              value=${this.annotator?.name ?? ""}
-            >
-              <option disabled selected>-- annotator --</option>
-              ${repeat(
-                this.annotators,
-                (a) => a._id,
-                (a) => html`<option value=${a._id}>${a.name}</option>`
-              )}
-            </select>
+            <strong>${this.annotator?.name}</strong>
             ${annHeader}
           </div>
           <div style="display: flex">${annPanel}</div>

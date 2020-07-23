@@ -1,8 +1,7 @@
 import { LitElement, html, customElement, property, css } from "lit-element";
-import { repeat } from "lit-html/directives/repeat";
-import { live } from "lit-html/directives/live";
 import hotkeys from "hotkeys-js";
 
+import "./label-buttons";
 import "./signal-view";
 import createSegmentCollection, {
   Segment,
@@ -16,10 +15,14 @@ interface Annotator {
 }
 
 const classes = [
-  { name: "Afib", value: "A", colour: "red" },
-  { name: "Normal", value: "N", colour: "white" },
-  { name: "Other", value: "O", colour: "blue" },
-  { name: "Abstain", value: "", colour: "blue" },
+  { name: "AFib", value: "AFIB", description: "Atrial Fibrillation" },
+  { name: "Normal", value: "NORMAL", description: "Normal Sinus Rhythm" },
+  { name: "Other", value: "OTHER", description: "Other Arrhythmia" },
+  {
+    name: "Abstain",
+    value: "ABSTAIN",
+    description: "Unsure/None of the Above",
+  },
 ];
 
 @customElement("conduit-annotator")
@@ -59,11 +62,11 @@ export default class AnnotatorApp extends LitElement {
     }
 
     #button-bar {
-      margin-top: 2em;
+      margin-top: 1em;
     }
 
     #signals {
-      width: 80vw;
+      width: 85vw;
     }
 
     .annotation-button {
@@ -90,15 +93,6 @@ export default class AnnotatorApp extends LitElement {
         this.prevRecord();
       } else if (evt.key === "ArrowRight") {
         this.nextRecord();
-      }
-
-      const keyValue = Number.parseInt(evt.key, 10);
-      if (
-        Number.isInteger(keyValue) &&
-        keyValue >= 1 &&
-        keyValue <= classes.length
-      ) {
-        this.saveAnnotation(classes[keyValue - 1].value);
       }
     });
   }
@@ -173,27 +167,13 @@ export default class AnnotatorApp extends LitElement {
           id="signals"
           .signals=${this.currentSegment?.signals}
         ></signal-view>
-        <div id="button-bar">
-          ${repeat(
-            classes,
-            (c, i) => html`
-              <div>
-                <input
-                  type="radio"
-                  name="label"
-                  value=${c.name}
-                  .checked=${live(c.value === annotation?.label)}
-                  @change="${(evt: InputEvent) => {
-                    // Prevent arrow keys scrolling through radio button
-                    (evt.target as HTMLInputElement).blur();
-                    this.saveAnnotation(c.value);
-                  }}"
-                />
-                ${c.name}<kbd>${i + 1}</kbd>
-              </div>
-            `
-          )}
-        </div>`;
+        <label-buttons
+          id="button-bar"
+          value=${annotation?.label}
+          .options=${classes}
+          @change=${(evt: Event) =>
+            this.saveAnnotation((evt as any).target.value)}
+        ></label-buttons>`;
     }
 
     return html`

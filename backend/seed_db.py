@@ -4,10 +4,27 @@ import random
 from app.config import Settings, get_settings
 from pymongo import MongoClient
 
+# bcrypt.hash("12345")
+PWD_HASH = "$2b$12$t1bJ80/hO8s4g08uYcq6lOiXchctMKRUccPo42dRtmpaQi3gdE8fO"
 ANNOTATORS = [
-    {"name": "Billy Foo", "username": "bfoo", "designation": "MD"},
-    {"name": "Bob Bar", "username": "bbar", "designation": "Student"},
-    {"name": "Joe Baz", "username": "bbar", "designation": "Student"},
+    {
+        "name": "Billy Foo",
+        "username": "bfoo",
+        "designation": "MD",
+        "hashed_password": PWD_HASH,
+    },
+    {
+        "name": "Bob Bar",
+        "username": "bbar",
+        "designation": "Student",
+        "hashed_password": PWD_HASH,
+    },
+    {
+        "name": "Joe Baz",
+        "username": "bbar",
+        "designation": "Student",
+        "hashed_password": PWD_HASH,
+    },
 ]
 SIGNAL_HZ = 240
 MAX_mV = 4

@@ -15,10 +15,13 @@ class HasId(BaseModel):
 
 class Annotator(HasId):
     name: str
-    # e.g. dmaslove, plaird, ssibley
+    # Usually first initial + last name
     username: str
     designation: str
     hashed_password: Optional[SecretStr]
+
+    # Used for resuming progress
+    last_annotated_segment: Optional[ObjectId]
 
 
 DEFAULT_SCHEMA = "CCDEF-1.1"

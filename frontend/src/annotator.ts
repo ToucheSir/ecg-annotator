@@ -12,6 +12,7 @@ interface Annotator {
   _id: string;
   name: string;
   username: string;
+  last_annotated_segment: string;
 }
 
 const classes = [
@@ -52,33 +53,24 @@ export default class AnnotatorApp extends LitElement {
       white-space: nowrap;
     }
 
-    #app {
-      display: flex;
-      justify-content: center;
-    }
-
     #header {
-      margin: auto 10px;
+      text-align: center;
+      display: inline-block;
+      width: 100%;
     }
 
-    #button-bar {
+    #body {
+      width: 100%;
+      display: flex;
+    }
+
+    signal-view {
+      flex-grow: 3;
+    }
+
+    label-buttons {
       margin-top: 1em;
-    }
-
-    #signals {
-      width: 85vw;
-    }
-
-    .annotation-button {
-      margin: 0 5px;
-      padding: 5px;
-      border: 2px solid black;
-      border-radius: 5px;
-    }
-
-    .selected {
-      background: black;
-      color: white;
+      min-width: 250px;
     }
   `;
 
@@ -104,9 +96,11 @@ export default class AnnotatorApp extends LitElement {
 
   async firstUpdated() {
     const annRes = await fetch("/api/annotators/me");
-    this.annotator = await annRes.json();
+    const annotator = await annRes.json();
+    this.annotator = annotator;
     this.segments = await createSegmentCollection(
-      new URL("/api/segments", location.href)
+      new URL("/api/segments", location.href),
+      annotator.last_annotated_segment
     );
     const { value, done } = await this.segments.next();
     if (!done) {
@@ -151,41 +145,30 @@ export default class AnnotatorApp extends LitElement {
   }
 
   render() {
-    let annHeader: any = "";
-    let annPanel: any = "";
-    const position = this.segments ? this.segments.position : 0;
-    if (this.annotator && this.currentSegment) {
-      const annotation = this.currentSegment.annotations[
-        this.annotator.username
-      ];
-      annHeader = html`
-        <span id="header">
-          | Segment ${position + 1} / ${this.segments?.length}
-        </span>
-      `;
-      annPanel = html`<signal-view
-          id="signals"
-          .signals=${this.currentSegment?.signals}
-        ></signal-view>
-        <label-buttons
-          id="button-bar"
-          value=${annotation?.label}
-          .options=${classes}
-          @change=${(evt: Event) =>
-            this.saveAnnotation((evt as any).target.value)}
-        ></label-buttons>`;
-    }
+    const segmentStats = this.segments
+      ? ` | Segment ${this.segments.position + 1} / ${this.segments?.length}`
+      : "";
+    const annotation = this.currentSegment?.annotations[
+      this.annotator!.username
+    ];
 
     return html`
-      <div id="app">
-        <div>
-          <div style="display: flex; justify-content: center">
-            <strong>${this.annotator?.name}</strong>
-            ${annHeader}
-          </div>
-          <div style="display: flex">${annPanel}</div>
+      <main>
+        <span id="header">${this.annotator?.name}${segmentStats}</span>
+        <div id="body">
+          <signal-view
+            id="signals"
+            .signals=${this.currentSegment?.signals}
+          ></signal-view>
+          <label-buttons
+            id="button-bar"
+            value=${annotation?.label ?? ""}
+            .options=${classes}
+            @change=${(evt: Event) =>
+              this.saveAnnotation((evt as any).target.value)}
+          ></label-buttons>
         </div>
-      </div>
+      </main>
     `;
   }
 }

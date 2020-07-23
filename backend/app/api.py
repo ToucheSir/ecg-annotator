@@ -88,9 +88,11 @@ async def get_current_annotator(
 
 @router.get("/segments/count")
 async def get_segment_count(
-    db: DatabaseContext = Depends(get_db), username: str = Depends(get_current_username)
+    start: Optional[str] = Query(None),
+    db: DatabaseContext = Depends(get_db),
+    username: str = Depends(get_current_username),
 ):
-    return await db.get_segment_count()
+    return await db.get_segment_count(start)
 
 
 @router.get("/segments")

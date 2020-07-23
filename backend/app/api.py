@@ -19,7 +19,7 @@ from app.models import *
 from app.database import DatabaseContext
 
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-import hashlib
+from passlib.hash import bcrypt
 import secrets
 
 security = HTTPBasic()
@@ -53,34 +53,19 @@ async def audit_handler(
     background.add_task(db.add_audit_event, audit_event)
 
 def verify_password(plain_password, hashed_password):
-    return (hashlib.sha256(plain_password.encode()).hexdigest() == hashed_password)
-
-# async def get_user(db, username: str):
-#     users: Users = await db.list_annotators()
-#     for user in users:
-#         print(user.name)
-#         if (username == user.username):
-#             return user
-#     return False
+    return bcrypt.verify(plain_password, hashed_password)
 
 async def get_current_username(
     credentials: HTTPBasicCredentials = Depends(security),
     db: DatabaseContext = Depends(get_db)
 ):
     user: Annotator = await db.get_user(credentials.username)
-    if not user:
+    if not user or not verify_password(credentials.password, user[0].hashed_password.get_secret_value()):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Basic"},
-        )
-    password = verify_password(credentials.password, user[0].hashed_password.get_secret_value())
-    if not password:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Basic"},
-        )
+            )
     return credentials.username
 
 @router.get("/annotators")

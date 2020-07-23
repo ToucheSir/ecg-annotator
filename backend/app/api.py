@@ -9,6 +9,7 @@ from fastapi import (
     Depends,
     Query,
     HTTPException,
+    status,
 )
 from fastapi.routing import APIRoute
 from bson import ObjectId
@@ -17,7 +18,11 @@ from app.config import Settings, get_settings
 from app.models import *
 from app.database import DatabaseContext
 
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from passlib.hash import bcrypt
+import secrets
 
+security = HTTPBasic()
 router = APIRouter()
 
 
@@ -48,14 +53,35 @@ async def audit_handler(
 
     background.add_task(db.add_audit_event, audit_event)
 
+def verify_password(plain_password, hashed_password):
+    return bcrypt.verify(plain_password, hashed_password)
+
+async def get_current_username(
+    credentials: HTTPBasicCredentials = Depends(security),
+    db: DatabaseContext = Depends(get_db)
+):
+    user: Annotator = await db.get_user(credentials.username)
+    if not user or not verify_password(credentials.password, user[0].hashed_password.get_secret_value()):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Basic"},
+            )
+    return credentials.username
 
 @router.get("/annotators")
-async def list_annotators(db: DatabaseContext = Depends(get_db)) -> List[Annotator]:
+async def list_annotators(
+    db: DatabaseContext = Depends(get_db),
+    username: str = Depends(get_current_username)
+) -> List[Annotator]:
     return await db.list_annotators()
 
 
 @router.get("/segments/count")
-async def get_segment_count(db: DatabaseContext = Depends(get_db)):
+async def get_segment_count(
+    db: DatabaseContext = Depends(get_db),
+    username: str = Depends(get_current_username)
+):
     return await db.get_segment_count()
 
 
@@ -65,6 +91,7 @@ async def list_segments(
     after: Optional[str] = Query(None),
     limit: int = Query(10),
     db: DatabaseContext = Depends(get_db),
+    username: str = Depends(get_current_username)
 ):
     try:
         if before:
@@ -82,6 +109,7 @@ async def get_segment(
     annotator_username: str = Query(None, alias="annotator"),
     db: DatabaseContext = Depends(get_db),
     settings: Settings = Depends(get_settings),
+    username: str = Depends(get_current_username)
 ):
     segment: AnnotatedSegment = await db.get_segment(ObjectId(segment_id))
     annotation = segment.annotations.get(annotator_username)
@@ -97,6 +125,7 @@ async def update_segment_annotations(
     annotator_username: str,
     annotation: Annotation,
     db: DatabaseContext = Depends(get_db),
+    username: str = Depends(get_current_username)
 ):
     try:
         await db.update_annotation(ObjectId(segment_id), annotator_username, annotation)

@@ -73,11 +73,19 @@ export default class AnnotatorApp extends LitElement {
 
   async firstUpdated() {
     const annRes = await fetch("/api/annotators/me");
-    const annotator = await annRes.json();
+    const annotator: Annotator = await annRes.json();
+    const campaign = annotator.current_campaign;
+
     this.annotator = annotator;
     this.segments = new SegmentCollection(
       new URL("/api/segments", location.href),
-      annotator.current_campaign
+      campaign
+    );
+    this.position = Math.min(
+      // Still -1 if no segments annotated
+      campaign.segments.indexOf(campaign.last_annotated_segment),
+      // Second last segment
+      campaign.segments.length - 2
     );
     return this.nextRecord();
   }

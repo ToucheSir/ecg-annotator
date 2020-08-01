@@ -81,7 +81,7 @@ class DatabaseContext:
             )
             await self.annotators.update_one(
                 {"username": annotator},
-                {"$set": {"last_annotated_segment": id}},
+                {"$set": {"current_campaign.last_annotated_segment": id}},
                 session=s,
             )
 

@@ -1,3 +1,19 @@
+import LRUCache from "lru-cache";
+
+export interface Annotator {
+  _id: string;
+  name: string;
+  username: string;
+  designation: string;
+  current_campaign: AnnotationCampaign;
+}
+
+export interface AnnotationCampaign {
+  name: string;
+  segments: string[];
+  completed: number;
+}
+
 export interface Annotation {
   label: string;
   confidence: number;
@@ -11,86 +27,58 @@ export interface Segment {
   annotations: Record<string, Annotation>;
 }
 
-export interface SegmentCollectionCursor
-  extends AsyncIterator<Segment | null, Segment | null, Segment | null> {
-  previous(): Promise<IteratorResult<Segment | null>>;
-  position: number;
-  length: number;
+export enum ScanDirection {
+  Forwards = 1,
+  Backwards = -1,
 }
 
-export default async function createSegmentCollection(
-  baseUrl: URL,
-  startId?: string,
-  chunkSize: number = 10
-): Promise<SegmentCollectionCursor> {
-  const countUrl = new URL("count", baseUrl.href + "/");
-  if (startId) countUrl.searchParams.set("start", startId);
-  // Actual total count
-  const countRes = await fetch(countUrl.href);
-  const [subCount, count] = await countRes.json();
+export default class SegmentCollection {
+  private cache: LRUCache<string, Promise<Segment>>;
+  private segmentIds: string[];
 
-  let currentChunk = await fetchNextChunk(startId);
-  let prevChunk = currentChunk.length
-    ? await fetchPrevChunk(currentChunk[0]._id)
-    : [];
-  let nextChunk = currentChunk.length
-    ? await fetchNextChunk(currentChunk[currentChunk.length - 1]._id)
-    : [];
-
-  async function fetchPrevChunk(before?: string): Promise<Segment[]> {
-    const recordsUrl = new URL("?limit=" + chunkSize, baseUrl.href);
-    if (before) recordsUrl.searchParams.set("before", before);
-    const res = await fetch(recordsUrl.href);
-    return await res.json();
+  constructor(
+    private baseUrl: URL,
+    { segments: segmentIds }: AnnotationCampaign,
+    private chunkSize: number = 5
+  ) {
+    this.cache = new LRUCache<string, Promise<Segment>>({ max: chunkSize * 2 });
+    this.segmentIds = segmentIds;
   }
 
-  async function fetchNextChunk(after?: string): Promise<Segment[]> {
-    const recordsUrl = new URL("?limit=" + chunkSize, baseUrl.href);
-    if (after) recordsUrl.searchParams.set("after", after);
-    const res = await fetch(recordsUrl.href);
-    return await res.json();
-  }
+  get(i: number, direction: ScanDirection): Promise<Segment> {
+    if (i < 0 || i >= this.segmentIds.length) {
+      throw new RangeError();
+    }
 
-  // TODO what if we start partway through the collection?
-  let position = subCount - 1;
-  let chunkIndex = -1;
-  return {
-    async previous() {
-      if (position < 1 || !currentChunk.length) {
-        return { value: null, done: false };
-      }
-      position--;
+    const segmentId = this.segmentIds[i];
+    const moveIndex = Math.max(
+      0,
+      Math.min(this.segmentIds.length, i + direction * this.chunkSize)
+    );
+    const fetchIds = this.segmentIds
+      .slice(Math.min(i, moveIndex), Math.max(i, moveIndex))
+      .filter((id) => !this.cache.has(id));
 
-      if (--chunkIndex < 0) {
-        nextChunk = currentChunk;
-        currentChunk = prevChunk;
-        prevChunk = await fetchPrevChunk(currentChunk[0]._id);
-        chunkIndex = currentChunk.length - 1;
-      }
-      return { value: currentChunk[chunkIndex], done: false };
-    },
-
-    async next() {
-      if (position + 1 >= count || !currentChunk.length) {
-        return { value: null, done: true };
-      }
-      position++;
-
-      if (++chunkIndex >= currentChunk.length) {
-        prevChunk = currentChunk;
-        currentChunk = nextChunk;
-        nextChunk = await fetchNextChunk(
-          currentChunk[currentChunk.length - 1]._id
+    if (fetchIds.length) {
+      const fetchParams = new URLSearchParams(
+        fetchIds.map((id) => ["find", id])
+      );
+      const segmentPromise = fetch(`${this.baseUrl.href}?${fetchParams}`).then<
+        Segment[]
+      >((x) => x.json());
+      for (const id of fetchIds) {
+        this.cache.set(
+          id,
+          segmentPromise.then(
+            (segments) => segments.find((seg) => seg._id === id)!
+          )
         );
-        chunkIndex = 0;
       }
-      return { value: currentChunk[chunkIndex], done: false };
-    },
+    }
+    return this.cache.get(segmentId)!;
+  }
 
-    get position() {
-      return position;
-    },
-
-    length: count,
-  };
+  get length() {
+    return this.segmentIds.length;
+  }
 }

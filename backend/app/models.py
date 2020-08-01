@@ -13,6 +13,17 @@ class HasId(BaseModel):
         orm_mode = True
 
 
+class AnnotationCampaign(BaseModel):
+    name: str
+    segments: List[ObjectId] = []
+    completed: int = 0
+    
+    class Config(BaseConfig):
+        arbitrary_types_allowed = True
+        json_encoders = {ObjectId: str}
+        orm_mode = True
+
+
 class Annotator(HasId):
     name: str
     # Usually first initial + last name
@@ -20,8 +31,7 @@ class Annotator(HasId):
     designation: str
     hashed_password: Optional[SecretStr]
 
-    # Used for resuming progress
-    last_annotated_segment: Optional[ObjectId]
+    current_campaign: AnnotationCampaign
 
 
 DEFAULT_SCHEMA = "CCDEF-1.1"

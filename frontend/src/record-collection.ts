@@ -11,7 +11,7 @@ export interface Annotator {
 export interface AnnotationCampaign {
   name: string;
   segments: string[];
-  completed: number;
+  last_annotated_segment: string;
 }
 
 export interface Annotation {

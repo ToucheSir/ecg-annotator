@@ -16,7 +16,7 @@ class HasId(BaseModel):
 class AnnotationCampaign(BaseModel):
     name: str
     segments: List[ObjectId] = []
-    completed: int = 0
+    last_annotated_segment: Optional[ObjectId]
     
     class Config(BaseConfig):
         arbitrary_types_allowed = True

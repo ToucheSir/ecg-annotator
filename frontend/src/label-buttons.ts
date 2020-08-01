@@ -108,13 +108,14 @@ export default class LabelButtons extends LitElement {
         ${repeat(this.options, (c, i) => {
           return html`
             <div>
+              <!-- using .checked ensures the state is updated instead set statically -->
               <input
                 type="radio"
                 id=${c.name}
                 name="label"
                 value=${c.value}
-                ?checked=${c.value === this.value}
                 required
+                .checked=${c.value === this.value}
               />
               <label for=${c.name}>
                 <abbr title=${c.description}>
@@ -125,7 +126,7 @@ export default class LabelButtons extends LitElement {
             </div>
           `;
         })}
-        <input type="submit" value="OK" style="margin-top: 1em" />
+        <input type="submit" value="Submit" style="margin-top: 1em" />
       </form>
     </div>`;
   }

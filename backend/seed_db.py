@@ -21,27 +21,33 @@ ANNOTATORS = [
     },
     {
         "name": "Joe Baz",
-        "username": "bbar",
+        "username": "jbaz",
         "designation": "Student",
         "hashed_password": PWD_HASH,
     },
 ]
 SIGNAL_HZ = 240
+SECONDS = 10
 MAX_mV = 4
 N = 200
 
 
-def generate_annotation():
-    amplitude = random.random() * MAX_mV
-    phase = random.random()
-    period = random.random() * math.pi / SIGNAL_HZ
-    signal = [amplitude * math.sin(period * x + phase) for x in range(SIGNAL_HZ * 10)]
+def generate_annotation(i: int):
+    n_samples = SIGNAL_HZ * SECONDS
+    # +- 1-3 mV strip extents
+    amplitude = (i % 3) + 0.75
+    # i = 0 + 1 == 1/2 period
+    # We increase i linearly so it's possible to identify the record number
+    signal = [
+        round(amplitude * math.sin(math.pi / n_samples * x * (i + 1)), 2)
+        for x in range(n_samples)
+    ]
 
     start_idx = random.randint(1, N) * SIGNAL_HZ
     return {
         "segment_record": "asdf1234",
         "start_idx": start_idx,
-        "stop_idx": start_idx + SIGNAL_HZ * 10,
+        "stop_idx": start_idx + n_samples,
         "signals": {"I": signal},
         "annotations": {},
     }
@@ -60,6 +66,23 @@ if __name__ == "__main__":
     segments = db.get_collection(settings.db_segment_collection)
 
     with client.start_session() as sess:
+        annotators.drop(session=sess)
+        segments.drop(session=sess)
+        db.get_collection("audit_events").drop(session=sess)
         with sess.start_transaction():
             annotators.insert_many(ANNOTATORS)
-            segments.insert_many([generate_annotation() for i in range(N)])
+            segments.insert_many([generate_annotation(i) for i in range(N)])
+
+    segment_ids = [s["_id"] for s in segments.find(projection=[])]
+    annotators.update_many(
+        {},
+        {
+            "$set": {
+                "current_campaign": {
+                    "name": "training",
+                    "segments": segment_ids,
+                    "completed": 0,
+                }
+            }
+        },
+    )

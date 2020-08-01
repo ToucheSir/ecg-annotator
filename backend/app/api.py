@@ -56,10 +56,10 @@ def verify_password(plain_password, hashed_password):
     return bcrypt.verify(plain_password, hashed_password)
 
 
-async def get_current_username(
+async def get_current_user(
     credentials: HTTPBasicCredentials = Depends(security),
     db: DatabaseContext = Depends(get_db),
-):
+) -> Annotator:
     user = await db.get_annotator(credentials.username)
     if not user or not verify_password(
         credentials.password, user.hashed_password.get_secret_value()
@@ -69,48 +69,36 @@ async def get_current_username(
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Basic"},
         )
-    return credentials.username
+    return user
 
 
 @router.get("/annotators")
 async def list_annotators(
-    db: DatabaseContext = Depends(get_db), username: str = Depends(get_current_username)
-) -> List[Annotator]:
+    db: DatabaseContext = Depends(get_db), _: Annotator = Depends(get_current_user)
+):
     return await db.list_annotators()
 
 
 @router.get("/annotators/me")
-async def get_current_annotator(
-    db: DatabaseContext = Depends(get_db), username: str = Depends(get_current_username)
-) -> List[Annotator]:
-    return await db.get_annotator(username)
-
-
-@router.get("/segments/count")
-async def get_segment_count(
-    start: Optional[str] = Query(None),
-    db: DatabaseContext = Depends(get_db),
-    username: str = Depends(get_current_username),
-):
-    return await db.get_segment_count(start)
+def get_current_annotator(user: Annotator = Depends(get_current_user)):
+    return user
 
 
 @router.get("/segments")
 async def list_segments(
-    before: Optional[str] = Query(None),
-    after: Optional[str] = Query(None),
+    find: Optional[List[str]] = Query(None),
     limit: int = Query(10),
     db: DatabaseContext = Depends(get_db),
-    username: str = Depends(get_current_username),
+    _: Annotator = Depends(get_current_user),
 ):
-    try:
-        if before:
-            before = ObjectId(before)
-        if after:
-            after = ObjectId(after)
-        return await db.list_segments(before=before, after=after, limit=limit)
-    except AssertionError as e:
-        raise HTTPException(400, str(e))
+    if find is not None:
+        limit = len(find)
+    if find is None or limit <= 0:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, f"search criteria always returns no results"
+        )
+
+    return await db.find_segments([ObjectId(id) for id in find])
 
 
 @router.get("/segments/{segment_id}")
@@ -118,7 +106,7 @@ async def get_segment(
     segment_id: str,
     annotator_username: str = Query(None, alias="annotator"),
     db: DatabaseContext = Depends(get_db),
-    username: str = Depends(get_current_username),
+    username: str = Depends(get_current_user),
 ):
     segment: AnnotatedSegment = await db.get_segment(ObjectId(segment_id))
     annotation = segment.annotations.get(annotator_username)
@@ -134,7 +122,7 @@ async def update_segment_annotations(
     annotator_username: str,
     annotation: Annotation,
     db: DatabaseContext = Depends(get_db),
-    username: str = Depends(get_current_username),
+    username: str = Depends(get_current_user),
 ):
     try:
         await db.update_annotation(ObjectId(segment_id), annotator_username, annotation)

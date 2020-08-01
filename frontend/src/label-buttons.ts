@@ -1,5 +1,11 @@
-import { LitElement, html, customElement, property, css } from "lit-element";
-import { classMap } from "lit-html/directives/class-map";
+import {
+  LitElement,
+  html,
+  customElement,
+  property,
+  css,
+  query,
+} from "lit-element";
 import { repeat } from "lit-html/directives/repeat";
 import hotkeys from "hotkeys-js";
 
@@ -9,7 +15,10 @@ export default class LabelButtons extends LitElement {
   options: { name: string; value: string; description: string }[] = [];
 
   @property()
-  value?: string;
+  value: string = "";
+
+  @query("#class-selection")
+  private labelForm?: HTMLFormElement;
 
   static styles = css`
     /* Source: https://developer.mozilla.org/en-US/docs/Web/HTML/Element/kbd */
@@ -41,6 +50,10 @@ export default class LabelButtons extends LitElement {
     }
   `;
 
+  private get labelInput() {
+    return this.labelForm?.elements.namedItem("label") as RadioNodeList;
+  }
+
   connectedCallback() {
     super.connectedCallback();
     hotkeys("*", (evt, _) => {
@@ -53,19 +66,25 @@ export default class LabelButtons extends LitElement {
         keyValue >= 1 &&
         keyValue <= this.options.length
       ) {
-        this.changeSelection(this.options[keyValue - 1].value);
+        this.labelInput.value = this.options[keyValue - 1].value;
       }
     });
-  }
-
-  private changeSelection(value: string) {
-    this.value = value;
-    this.dispatchEvent(new Event("change"));
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     hotkeys.unbind("*");
+  }
+
+  private submitSelection(evt: Event) {
+    evt.preventDefault();
+    this.value = this.labelInput.value;
+    console.log(this.value);
+    this.dispatchEvent(
+      new CustomEvent("select-label", {
+        detail: { label: this.value },
+      })
+    );
   }
 
   render() {
@@ -76,8 +95,8 @@ export default class LabelButtons extends LitElement {
         </summary>
         <ul style="padding-left: 0">
           <li>
-            Use the buttons or number keys (1-4) to select a label for each
-            segment.
+            Use the buttons or number keys (1-${this.options.length}) to select
+            a label for each segment.
           </li>
           <li>
             Click and drag on the chart to zoom in, and double click to zoom out
@@ -85,26 +104,29 @@ export default class LabelButtons extends LitElement {
           </li>
         </ul>
       </details>
-      ${repeat(this.options, (c, i) => {
-        const selected = c.value === this.value;
-        return html`
-          <button
-            type="button"
-            class=${classMap({ selected })}
-            ?disabled=${selected}
-            @click="${(evt: Event) => {
-              // Prevent from interfering with arrow keys
-              (evt.target as HTMLElement).blur();
-              this.changeSelection(c.value);
-            }}"
-          >
-            <abbr title=${(selected ? "(Selected) " : "") + c.description}>
-              ${c.name}
-            </abbr>
-            <kbd>${i + 1}</kbd>
-          </button>
-        `;
-      })}
+      <form id="class-selection" @submit=${this.submitSelection}>
+        ${repeat(this.options, (c, i) => {
+          return html`
+            <div>
+              <input
+                type="radio"
+                id=${c.name}
+                name="label"
+                value=${c.value}
+                ?checked=${c.value === this.value}
+                required
+              />
+              <label for=${c.name}>
+                <abbr title=${c.description}>
+                  ${c.name}
+                </abbr>
+                <kbd>${i + 1}</kbd>
+              </label>
+            </div>
+          `;
+        })}
+        <input type="submit" value="OK" style="margin-top: 1em" />
+      </form>
     </div>`;
   }
 }

@@ -1,19 +1,13 @@
 import { LitElement, html, customElement, property, css } from "lit-element";
-import hotkeys from "hotkeys-js";
+import { until } from "lit-html/directives/until";
 
 import "./label-buttons";
 import "./signal-view";
-import createSegmentCollection, {
+import SegmentCollection, {
   Segment,
-  SegmentCollectionCursor,
+  ScanDirection,
+  Annotator,
 } from "./record-collection";
-
-interface Annotator {
-  _id: string;
-  name: string;
-  username: string;
-  last_annotated_segment: string;
-}
 
 const classes = [
   { name: "AFib", value: "AFIB", description: "Atrial Fibrillation" },
@@ -28,13 +22,16 @@ const classes = [
 
 @customElement("conduit-annotator")
 export default class AnnotatorApp extends LitElement {
-  private segments?: SegmentCollectionCursor;
+  private segments?: SegmentCollection;
 
   @property({ attribute: false })
   currentSegment?: Segment;
 
   @property({ attribute: false })
   annotator?: Annotator;
+
+  @property({ type: Number })
+  position = -1;
 
   static styles = css`
     /* Source: https://developer.mozilla.org/en-US/docs/Web/HTML/Element/kbd */
@@ -74,59 +71,35 @@ export default class AnnotatorApp extends LitElement {
     }
   `;
 
-  connectedCallback() {
-    super.connectedCallback();
-    hotkeys("*", (evt, _) => {
-      if (evt.repeat) {
-        return;
-      }
-
-      if (evt.key == "ArrowLeft") {
-        this.prevRecord();
-      } else if (evt.key === "ArrowRight") {
-        this.nextRecord();
-      }
-    });
-  }
-
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    hotkeys.unbind("*");
-  }
-
   async firstUpdated() {
     const annRes = await fetch("/api/annotators/me");
     const annotator = await annRes.json();
     this.annotator = annotator;
-    this.segments = await createSegmentCollection(
+    this.segments = new SegmentCollection(
       new URL("/api/segments", location.href),
-      annotator.last_annotated_segment
+      annotator.current_campaign
     );
-    const { value, done } = await this.segments.next();
-    if (!done) {
-      this.currentSegment = value!;
-      console.log(this.currentSegment);
-    }
+    return this.nextRecord();
   }
 
   private async prevRecord() {
-    if (this.segments && this.currentSegment) {
-      const { value } = await this.segments?.previous();
-      if (value) {
-        this.currentSegment = value;
-      }
+    if (this.segments && this.position > 0) {
+      this.currentSegment = await this.segments.get(
+        --this.position,
+        ScanDirection.Backwards
+      );
     }
   }
   private async nextRecord() {
-    if (this.segments && this.currentSegment) {
-      const { value, done } = await this.segments?.next();
-      if (!done && value) {
-        this.currentSegment = value;
-      }
+    if (this.segments && this.position < this.segments.length - 1) {
+      this.currentSegment = await this.segments.get(
+        ++this.position,
+        ScanDirection.Forwards
+      );
     }
   }
 
-  private async saveAnnotation(label: string) {
+  private async saveAnnotation({ detail: { label } }: CustomEvent) {
     if (!this.annotator || !this.currentSegment) {
       throw ReferenceError("no annotator and record selected");
     }
@@ -136,36 +109,59 @@ export default class AnnotatorApp extends LitElement {
     const annotationUrl = `${dataUrl}/annotations/${username}`;
     const annotation = { label, confidence: 1 };
     this.currentSegment.annotations[username] = annotation;
-    this.nextRecord();
-    return fetch(annotationUrl, {
+    await fetch(annotationUrl, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(annotation),
     });
+    this.nextRecord();
+  }
+
+  private updatedOr(cond: boolean) {
+    return until(this.updateComplete.then((x) => !x || cond));
   }
 
   render() {
     const segmentStats = this.segments
-      ? ` | Segment ${this.segments.position + 1} / ${this.segments?.length}`
+      ? ` | Segment ${this.position + 1} / ${this.segments?.length}`
       : "";
     const annotation = this.currentSegment?.annotations[
       this.annotator!.username
     ];
 
+    const moveButtons =
+      this.annotator?.designation &&
+      this.annotator.designation.toLowerCase() != "student"
+        ? html`<button
+              @click=${this.prevRecord}
+              ?disabled=${this.updatedOr(this.position <= 0)}
+            >
+              Prev
+            </button>
+            <button
+              @click=${this.nextRecord}
+              ?disabled=${this.updatedOr(
+                this.position >= (this.segments?.length ?? 0) - 1
+              )}
+            >
+              Next
+            </button>`
+        : null;
     return html`
       <main>
-        <span id="header">${this.annotator?.name}${segmentStats}</span>
+        <div id="header">
+          ${this.annotator?.name}${segmentStats} ${moveButtons}
+        </div>
         <div id="body">
           <signal-view
             id="signals"
-            .signals=${this.currentSegment?.signals}
+            .signals=${this.currentSegment?.signals ?? {}}
           ></signal-view>
           <label-buttons
             id="button-bar"
-            value=${annotation?.label ?? ""}
+            .value=${annotation?.label ?? ""}
             .options=${classes}
-            @change=${(evt: Event) =>
-              this.saveAnnotation((evt as any).target.value)}
+            @select-label=${this.saveAnnotation}
           ></label-buttons>
         </div>
       </main>

@@ -29,25 +29,20 @@ class DatabaseContext:
     def __enter__(self):
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, *_):
         self.client.close()
 
-    async def get_annotator(self, username: str) -> Annotator:
+    async def get_annotator(self, username: str) -> Optional[Annotator]:
         res = await self.annotators.find_one({"username": username})
-        return Annotator(**res)
+        return Annotator(**res) if res is not None else res
 
     async def list_annotators(self) -> List[Annotator]:
         res = self.annotators.find(projection={"hashed_password": False})
         return [Annotator(**a) async for a in res]
 
-    async def get_segment_count(self, start: Optional[str] = None) -> Tuple[int, int]:
-        total_count = await self.segments.count_documents(filter={})
-        sub_count = 0
-        if start is not None:
-            sub_count = await self.segments.count_documents(
-                filter={"_id": {"$lt": ObjectId(start)}}
-            )
-        return sub_count, total_count
+    async def find_segments(self, segment_ids: List[ObjectId]):
+        res = self.segments.find({"_id": {"$in": segment_ids}})
+        return [AnnotatedSegment(**sr) async for sr in res]
 
     async def list_segments(
         self, after: ObjectId = None, before: ObjectId = None, limit: int = 10

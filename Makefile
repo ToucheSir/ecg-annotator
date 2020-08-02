@@ -1,5 +1,5 @@
 all: backend frontend
-	tar -cvf annotator.tar.gz build
+	tar -cvf annotator-`git rev-parse --short HEAD`.tar.gz build
 
 .PHONY: all backend frontend
 
@@ -14,4 +14,4 @@ frontend: init
 	cd frontend && npm run build && cp -r build ../build/static
 
 clean:
-	rm -r build annotator.tar.gz || true
+	rm -r build annotator*.tar.gz || true

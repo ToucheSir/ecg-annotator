@@ -1,6 +1,7 @@
 __pycache__
 .mypy_cache
 .vscode
+.build
 build
 *.tar.gz
 *.env

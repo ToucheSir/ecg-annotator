@@ -1,9 +1,14 @@
 {
   "extends": "@snowpack/app-scripts-lit-element",
+  "install": [
+    "dialog-polyfill/dist/dialog-polyfill.css",
+    "uplot/dist/uPlot.min.css"
+  ],
   "scripts": {},
   "plugins": ["@snowpack/plugin-parcel"],
   "devOptions": {
-    "port": 5000
+    "port": 5000,
+    "open": "none"
   },
   "proxy": {
     "/api": "http://localhost:8000"

@@ -107,7 +107,7 @@ export default class SignalView extends LitElement {
 
   render() {
     return html`
-      <link rel="stylesheet" href="uPlot.min.css" />
+      <link rel="stylesheet" href="/web_modules/uplot/dist/uPlot.min.css" />
       <div class="chart-root"></div>
     `;
   }

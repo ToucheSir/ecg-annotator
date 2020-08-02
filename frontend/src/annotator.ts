@@ -1,5 +1,13 @@
-import { LitElement, html, customElement, property, css } from "lit-element";
+import {
+  LitElement,
+  html,
+  customElement,
+  property,
+  query,
+  css,
+} from "lit-element";
 import { until } from "lit-html/directives/until";
+import dialogPolyfill from "dialog-polyfill";
 
 import "./label-buttons";
 import "./signal-view";
@@ -7,16 +15,74 @@ import SegmentCollection, {
   Segment,
   ScanDirection,
   Annotator,
+  Annotation,
 } from "./record-collection";
 
 const classes = [
-  { name: "AFib", value: "AFIB", description: "Atrial Fibrillation" },
-  { name: "Normal", value: "NORMAL", description: "Normal Sinus Rhythm" },
-  { name: "Other", value: "OTHER", description: "Other Arrhythmia" },
   {
-    name: "Abstain",
+    value: "SR",
+    name: "sinus rhythm",
+    description: "sinus rhythm",
+  },
+  {
+    value: "AFIB",
+    name: "atrial fibrillation",
+    description: "atrial fibrillation",
+  },
+  {
+    value: "STACH",
+    name: "sinus tachycardia",
+    description: "sinus tachycardia",
+  },
+  {
+    value: "SARRH",
+    name: "sinus arrhythmia",
+    description: "sinus arrhythmia",
+  },
+  {
+    value: "SBRAD",
+    name: "sinus bradycardia",
+    description: "sinus bradycardia",
+  },
+  {
+    value: "PACE",
+    name: "normal functioning artificial pacemaker",
+    description: "normal functioning artificial pacemaker",
+  },
+  {
+    value: "SVARR",
+    name: "supraventricular arrhythmia",
+    description: "supraventricular arrhythmia",
+  },
+  {
+    value: "BIGU",
+    name: "bigeminal pattern",
+    description: "bigeminal pattern (unknown origin, SV or Ventricular)",
+  },
+  {
+    value: "AFLT",
+    name: "atrial flutter",
+    description: "atrial flutter",
+  },
+  {
+    value: "SVTAC",
+    name: "supraventricular tachycardia",
+    description: "supraventricular tachycardia",
+  },
+  {
+    value: "PSVT",
+    name: "paroxysmal supraventricular tachycardia",
+    description: "paroxysmal supraventricular tachycardia",
+  },
+  {
+    value: "TRIGU",
+    name: "trigeminal pattern",
+    description: "trigeminal pattern (unknown origin, SV or Ventricular)",
+  },
+  {
     value: "ABSTAIN",
-    description: "Unsure/None of the Above",
+    name: "abstain",
+    description: "unsure/none of the above",
   },
 ];
 
@@ -32,6 +98,9 @@ export default class AnnotatorApp extends LitElement {
 
   @property({ type: Number })
   position = -1;
+
+  @query("#abstain-dialog-template")
+  private abstainDialogTemplate?: HTMLTemplateElement;
 
   static styles = css`
     /* Source: https://developer.mozilla.org/en-US/docs/Web/HTML/Element/kbd */
@@ -107,6 +176,34 @@ export default class AnnotatorApp extends LitElement {
     }
   }
 
+  private async showAbstainDialog() {
+    const dialogConent = this.abstainDialogTemplate!.content.cloneNode(true);
+    const dialog = document.createElement("dialog");
+
+    dialog.append(dialogConent);
+    dialogPolyfill.registerDialog(dialog);
+    document.body.appendChild(dialog);
+    dialog
+      .querySelector("#cancel")
+      ?.addEventListener("click", () => dialog.close(), { capture: false });
+    dialog.showModal();
+
+    const reason: string = await new Promise((res, rej) => {
+      dialog.onclose = () => {
+        try {
+          const reasonInput = dialog
+            .querySelector("form")
+            ?.elements.namedItem("reason") as HTMLInputElement;
+          res(reasonInput.value.trim());
+        } catch (e) {
+          rej(e);
+        }
+      };
+    });
+    document.body.removeChild(dialog);
+    return reason;
+  }
+
   private async saveAnnotation({ detail: { label } }: CustomEvent) {
     if (!this.annotator || !this.currentSegment) {
       throw ReferenceError("no annotator and record selected");
@@ -115,8 +212,16 @@ export default class AnnotatorApp extends LitElement {
     const { username } = this.annotator;
     const dataUrl = `/api/segments/${this.currentSegment._id}`;
     const annotationUrl = `${dataUrl}/annotations/${username}`;
-    const annotation = { label, confidence: 1 };
+    const annotation: Annotation = { label, confidence: 1 };
+    if (label === "ABSTAIN") {
+      const comments = await this.showAbstainDialog();
+      if (!comments) {
+        return;
+      }
+      annotation.comments = comments;
+    }
     this.currentSegment.annotations[username] = annotation;
+
     await fetch(annotationUrl, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -156,6 +261,10 @@ export default class AnnotatorApp extends LitElement {
             </button>`
         : null;
     return html`
+      <link
+        rel="stylesheet"
+        href="/web_modules/dialog-polyfill/dist/dialog-polyfill.css"
+      />
       <main>
         <div id="header">
           ${this.annotator?.name}${segmentStats} ${moveButtons}
@@ -172,6 +281,29 @@ export default class AnnotatorApp extends LitElement {
             @select-label=${this.saveAnnotation}
           ></label-buttons>
         </div>
+
+        <template id="abstain-dialog-template">
+          <form method="dialog">
+            <datalist id="abstain-reasons">
+              <option value="too noisy to annotate">
+                (suggestion) too noisy to annotate
+              </option>
+            </datalist>
+            <input
+              type="text"
+              name="reason"
+              required
+              pattern=".*?[^\\s].*?"
+              list="abstain-reasons"
+              placeholder="reason for abstaining"
+            />
+            <menu>
+              <!-- N.B. type="button" doesn't trigger on enter -->
+              <button type="button" id="cancel">Cancel</button>
+              <button>Submit</button>
+            </menu>
+          </form>
+        </template>
       </main>
     `;
   }

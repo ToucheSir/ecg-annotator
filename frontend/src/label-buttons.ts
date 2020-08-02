@@ -7,7 +7,22 @@ import {
   query,
 } from "lit-element";
 import { repeat } from "lit-html/directives/repeat";
-import hotkeys from "hotkeys-js";
+
+const shortcutKeys = [
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  "0",
+  "-",
+  "=",
+  "~",
+];
 
 @customElement("label-buttons")
 export default class LabelButtons extends LitElement {
@@ -19,6 +34,8 @@ export default class LabelButtons extends LitElement {
 
   @query("#class-selection")
   private labelForm?: HTMLFormElement;
+
+  private listener?: (evt: KeyboardEvent) => void;
 
   static styles = css`
     /* Source: https://developer.mozilla.org/en-US/docs/Web/HTML/Element/kbd */
@@ -56,30 +73,29 @@ export default class LabelButtons extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    hotkeys("*", (evt, _) => {
+    this.listener = (evt: KeyboardEvent) => {
       if (evt.repeat) {
         return;
       }
-      const keyValue = Number.parseInt(evt.key, 10);
-      if (
-        Number.isInteger(keyValue) &&
-        keyValue >= 1 &&
-        keyValue <= this.options.length
-      ) {
-        this.labelInput.value = this.options[keyValue - 1].value;
+      const shortcutIndex = shortcutKeys.indexOf(evt.key);
+      if (shortcutIndex >= 0) {
+        this.labelInput.value = this.options[shortcutIndex].value;
       }
+    };
+    document.body.addEventListener("keydown", this.listener, {
+      capture: false,
+      passive: true,
     });
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    hotkeys.unbind("*");
+    document.body.removeEventListener("keydown", this.listener!);
   }
 
   private submitSelection(evt: Event) {
     evt.preventDefault();
     this.value = this.labelInput.value;
-    console.log(this.value);
     this.dispatchEvent(
       new CustomEvent("select-label", {
         detail: { label: this.value },
@@ -95,8 +111,8 @@ export default class LabelButtons extends LitElement {
         </summary>
         <ul style="padding-left: 0">
           <li>
-            Use the buttons or number keys (1-${this.options.length}) to select
-            a label for each segment.
+            Use the buttons or keyboard shortcuts to select a label for each
+            segment.
           </li>
           <li>
             Click and drag on the chart to zoom in, and double click to zoom out
@@ -118,10 +134,10 @@ export default class LabelButtons extends LitElement {
                 .checked=${c.value === this.value}
               />
               <label for=${c.name}>
+                <kbd>${shortcutKeys[i]}</kbd>
                 <abbr title=${c.description}>
                   ${c.name}
                 </abbr>
-                <kbd>${i + 1}</kbd>
               </label>
             </div>
           `;

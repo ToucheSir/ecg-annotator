@@ -128,3 +128,68 @@ async def update_segment_annotations(
         await db.update_annotation(ObjectId(segment_id), annotator_username, annotation)
     except AssertionError as e:
         raise HTTPException(400, str(e))
+
+
+@router.get("/classes")
+def get_classes(_: str = Depends(get_current_user)):
+    # TODO lookup from db and add this as seed data
+    return [
+        {"value": "SR", "name": "sinus rhythm", "description": "sinus rhythm"},
+        {
+            "value": "AFIB",
+            "name": "atrial fibrillation",
+            "description": "atrial fibrillation",
+        },
+        {
+            "value": "STACH",
+            "name": "sinus tachycardia",
+            "description": "sinus tachycardia",
+        },
+        {
+            "value": "SARRH",
+            "name": "sinus arrhythmia",
+            "description": "sinus arrhythmia",
+        },
+        {
+            "value": "SBRAD",
+            "name": "sinus bradycardia",
+            "description": "sinus bradycardia",
+        },
+        {
+            "value": "PACE",
+            "name": "normal functioning artificial pacemaker",
+            "description": "normal functioning artificial pacemaker",
+        },
+        {
+            "value": "SVARR",
+            "name": "supraventricular arrhythmia",
+            "description": "supraventricular arrhythmia",
+        },
+        {
+            "value": "BIGU",
+            "name": "bigeminal pattern",
+            "description": "bigeminal pattern (unknown origin, SV or Ventricular)",
+        },
+        {"value": "AFLT", "name": "atrial flutter", "description": "atrial flutter"},
+        {
+            "value": "SVTAC",
+            "name": "supraventricular tachycardia",
+            "description": "supraventricular tachycardia",
+        },
+        {
+            "value": "PSVT",
+            "name": "paroxysmal supraventricular tachycardia",
+            "description": "paroxysmal supraventricular tachycardia",
+        },
+        {
+            "value": "TRIGU",
+            "name": "trigeminal pattern",
+            "description": "trigeminal pattern (unknown origin, SV or Ventricular)",
+        },
+        {
+            "value": "ABSTAIN",
+            "name": "abstain",
+            "description": "unsure/none of the above",
+        },
+    ]
+

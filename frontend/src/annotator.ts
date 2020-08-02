@@ -18,74 +18,6 @@ import SegmentCollection, {
   Annotation,
 } from "./record-collection";
 
-const classes = [
-  {
-    value: "SR",
-    name: "sinus rhythm",
-    description: "sinus rhythm",
-  },
-  {
-    value: "AFIB",
-    name: "atrial fibrillation",
-    description: "atrial fibrillation",
-  },
-  {
-    value: "STACH",
-    name: "sinus tachycardia",
-    description: "sinus tachycardia",
-  },
-  {
-    value: "SARRH",
-    name: "sinus arrhythmia",
-    description: "sinus arrhythmia",
-  },
-  {
-    value: "SBRAD",
-    name: "sinus bradycardia",
-    description: "sinus bradycardia",
-  },
-  {
-    value: "PACE",
-    name: "normal functioning artificial pacemaker",
-    description: "normal functioning artificial pacemaker",
-  },
-  {
-    value: "SVARR",
-    name: "supraventricular arrhythmia",
-    description: "supraventricular arrhythmia",
-  },
-  {
-    value: "BIGU",
-    name: "bigeminal pattern",
-    description: "bigeminal pattern (unknown origin, SV or Ventricular)",
-  },
-  {
-    value: "AFLT",
-    name: "atrial flutter",
-    description: "atrial flutter",
-  },
-  {
-    value: "SVTAC",
-    name: "supraventricular tachycardia",
-    description: "supraventricular tachycardia",
-  },
-  {
-    value: "PSVT",
-    name: "paroxysmal supraventricular tachycardia",
-    description: "paroxysmal supraventricular tachycardia",
-  },
-  {
-    value: "TRIGU",
-    name: "trigeminal pattern",
-    description: "trigeminal pattern (unknown origin, SV or Ventricular)",
-  },
-  {
-    value: "ABSTAIN",
-    name: "abstain",
-    description: "unsure/none of the above",
-  },
-];
-
 @customElement("conduit-annotator")
 export default class AnnotatorApp extends LitElement {
   private segments?: SegmentCollection;
@@ -98,6 +30,9 @@ export default class AnnotatorApp extends LitElement {
 
   @property({ type: Number })
   position = -1;
+
+  @property({ attribute: false })
+  classes: any[] = [];
 
   @query("#abstain-dialog-template")
   private abstainDialogTemplate?: HTMLTemplateElement;
@@ -141,11 +76,14 @@ export default class AnnotatorApp extends LitElement {
   `;
 
   async firstUpdated() {
-    const annRes = await fetch("/api/annotators/me");
-    const annotator: Annotator = await annRes.json();
-    const campaign = annotator.current_campaign;
-
+    const [classes, annotator] = await Promise.all([
+      fetch("/api/classes").then((r) => r.json()),
+      fetch("/api/annotators/me").then<Annotator>((r) => r.json()),
+    ]);
+    this.classes = classes;
     this.annotator = annotator;
+    
+    const campaign = annotator.current_campaign;
     this.segments = new SegmentCollection(
       new URL("/api/segments", location.href),
       campaign
@@ -277,7 +215,7 @@ export default class AnnotatorApp extends LitElement {
           <label-buttons
             id="button-bar"
             .value=${annotation?.label ?? ""}
-            .options=${classes}
+            .options=${this.classes}
             @select-label=${this.saveAnnotation}
           ></label-buttons>
         </div>

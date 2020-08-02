@@ -39,10 +39,19 @@ export default class SegmentCollection {
   constructor(
     private baseUrl: URL,
     { segments: segmentIds }: AnnotationCampaign,
-    private chunkSize: number = 5
+    private chunkSize: number = 20
   ) {
     this.cache = new LRUCache<string, Promise<Segment>>({ max: chunkSize * 2 });
     this.segmentIds = segmentIds;
+  }
+
+  private findRange(i: number, direction: ScanDirection): number[] {
+    const moveIndex = i + direction * this.chunkSize;
+    if (direction === ScanDirection.Forwards) {
+      return [i, Math.min(moveIndex, this.segmentIds.length)];
+    } else {
+      return [Math.max(0, moveIndex), i + 1];
+    }
   }
 
   get(i: number, direction: ScanDirection): Promise<Segment> {
@@ -51,25 +60,20 @@ export default class SegmentCollection {
     }
 
     const segmentId = this.segmentIds[i];
-    const moveIndex = Math.max(
-      0,
-      Math.min(this.segmentIds.length, i + direction * this.chunkSize)
-    );
     const fetchIds = this.segmentIds
-      .slice(Math.min(i, moveIndex), Math.max(i, moveIndex))
+      .slice(...this.findRange(i, direction))
       .filter((id) => !this.cache.has(id));
 
     if (fetchIds.length) {
       const fetchParams = new URLSearchParams(
         fetchIds.map((id) => ["find", id])
       );
-      const segmentPromise = fetch(`${this.baseUrl.href}?${fetchParams}`).then<
-        Segment[]
-      >((x) => x.json());
+      const segmentReq = fetch(`${this.baseUrl.href}?${fetchParams}`);
+      const segmentReqBody = segmentReq.then<Segment[]>((x) => x.json());
       for (const id of fetchIds) {
         this.cache.set(
           id,
-          segmentPromise.then(
+          segmentReqBody.then(
             (segments) => segments.find((seg) => seg._id === id)!
           )
         );

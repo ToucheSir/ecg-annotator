@@ -18,7 +18,6 @@ from app.database import DatabaseContext
 
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from passlib.hash import bcrypt
-import secrets
 
 security = HTTPBasic()
 router = APIRouter()
@@ -52,8 +51,8 @@ async def audit_handler(
     background.add_task(db.add_audit_event, audit_event)
 
 
-def verify_password(plain_password, hashed_password):
-    return bcrypt.verify(plain_password, hashed_password)
+def verify_password(plain_password, hashed_password: SecretStr):
+    return bcrypt.verify(plain_password, hashed_password.get_secret_value())
 
 
 async def get_current_user(
@@ -61,9 +60,7 @@ async def get_current_user(
     db: DatabaseContext = Depends(get_db),
 ) -> Annotator:
     user = await db.get_annotator(credentials.username)
-    if not user or not verify_password(
-        credentials.password, user.hashed_password.get_secret_value()
-    ):
+    if not user or not verify_password(credentials.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -108,7 +105,7 @@ async def get_segment(
     db: DatabaseContext = Depends(get_db),
     username: str = Depends(get_current_user),
 ):
-    segment: AnnotatedSegment = await db.get_segment(ObjectId(segment_id))
+    segment: SegmentRecord = await db.get_segment(ObjectId(segment_id))
     annotation = segment.annotations.get(annotator_username)
     return {
         "signals": segment.signals,

@@ -1,8 +1,10 @@
 import math
 import random
 
-from app.config import Settings, get_settings
+from app.config import get_settings
+from app.models import SegmentRecord
 from pymongo import MongoClient
+from bson import ObjectId
 
 # bcrypt.hash("12345")
 PWD_HASH = "$2b$12$t1bJ80/hO8s4g08uYcq6lOiXchctMKRUccPo42dRtmpaQi3gdE8fO"
@@ -32,8 +34,7 @@ MAX_mV = 4
 N = 200
 
 
-def generate_annotation(i: int):
-    n_samples = SIGNAL_HZ * SECONDS
+def generate_annotation(i: int, n_samples=SIGNAL_HZ * SECONDS):
     # +- 1-3 mV strip extents
     amplitude = (i % 3) + 0.75
     # i = 0 + 1 == 1/2 period
@@ -44,13 +45,16 @@ def generate_annotation(i: int):
     ]
 
     start_idx = random.randint(1, N) * SIGNAL_HZ
-    return {
-        "segment_record": "asdf1234",
-        "start_idx": start_idx,
-        "stop_idx": start_idx + n_samples,
-        "signals": {"I": signal},
-        "annotations": {},
-    }
+    return SegmentRecord(
+        _id=ObjectId(i.to_bytes(12, byteorder="little")),
+        case_id=f"case_{i}",
+        pool_segment=ObjectId(b"123-456-7890"),
+        start_idx=start_idx,
+        stop_idx=start_idx + n_samples,
+        zero_padded=False,
+        signals={"I": signal},
+        annotations={},
+    ).dict()
 
 
 if __name__ == "__main__":

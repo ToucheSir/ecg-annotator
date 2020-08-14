@@ -42,11 +42,11 @@ class DatabaseContext:
 
     async def find_segments(self, segment_ids: List[ObjectId]):
         res = self.segments.find({"_id": {"$in": segment_ids}})
-        return [AnnotatedSegment(**sr) async for sr in res]
+        return [SegmentRecord(**sr) async for sr in res]
 
     async def list_segments(
         self, after: ObjectId = None, before: ObjectId = None, limit: int = 10
-    ) -> List[AnnotatedSegment]:
+    ) -> List[SegmentRecord]:
         assert not (before and after), "only one of before and after is permitted"
 
         criteria = {}
@@ -63,10 +63,10 @@ class DatabaseContext:
             criteria, sort=[("_id", id_order)], limit=limit
         ).to_list(None)
         # records are reversed when querying "before" to undo the descending sort order
-        return [AnnotatedSegment(**sr) for sr in (reversed(res) if before else res)]
+        return [SegmentRecord(**sr) for sr in (reversed(res) if before else res)]
 
-    async def get_segment(self, id: ObjectId) -> AnnotatedSegment:
-        return AnnotatedSegment(**await self.segments.find_one(id))
+    async def get_segment(self, id: ObjectId) -> SegmentRecord:
+        return SegmentRecord(**await self.segments.find_one(id))
 
     async def update_annotation(
         self, id: ObjectId, annotator: str, annotation: Annotation

@@ -11,6 +11,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 
 from app.config import Settings, get_settings
 from app.models import *
+from bson import ObjectId
 
 
 class DatabaseContext:
@@ -32,8 +33,57 @@ class DatabaseContext:
     def __exit__(self, *_):
         self.client.close()
 
+    async def append_segment(self, username: str, segment: ObjectId):
+        res = await self.annotators.find_one_and_update(
+            {"username": username},
+            {"$addToSet": {"current_campaign.segments": ObjectId(segment) }}
+        )
+        return
+
+    async def new_segments(self, username: str, campaign: str, segment: ObjectId):
+        res = await self.annotators.find_one_and_update(
+            {"username": username},
+            { "$set": {
+                "current_campaign": {
+                    "name": campaign,
+                    "segments": [ObjectId(segment)],
+                    "completed": 0,
+                    }
+                }
+            }
+        )
+        return
+
+    async def reset_password(self, username: str, password: str):
+        res = await self.annotators.find_one_and_update(
+            {"username": username},
+            {"$set": {"hashed_password": password}}
+        )
+        return res
+
+    async def add_user(self, name: str, username: str, designation: str, password: str):
+        await self.annotators.insert_one(
+            {"name": name,
+             "username": username,
+             "designation": designation,
+             "hashed_password": password,
+             "current_campaign": {
+                 "name": "empty",
+                 "segments": [],
+                 "completed": 0,
+                 }
+             }
+        )
+        return
+
     async def get_annotator(self, username: str) -> Optional[Annotator]:
         res = await self.annotators.find_one({"username": username})
+        return Annotator(**res) if res is not None else res
+
+    async def get_admin_annotator(self, username: str) -> Optional[Annotator]:
+        res = await self.annotators.find_one({"username": username})
+        if res.designation != "MD":
+            res = None
         return Annotator(**res) if res is not None else res
 
     async def list_annotators(self) -> List[Annotator]:

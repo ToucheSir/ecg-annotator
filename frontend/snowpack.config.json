@@ -11,7 +11,8 @@
     "open": "none"
   },
   "proxy": {
-    "/api": "http://localhost:8000"
+    "/api": "http://localhost:8000",
+    "/admin": "http://localhost:8000"
   },
   "installOptions": {
     "sourceMap": true

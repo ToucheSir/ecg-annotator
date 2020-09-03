@@ -9,6 +9,9 @@ from fastapi import (
     Query,
     HTTPException,
     status,
+    Form,
+    File,
+    UploadFile
 )
 from bson import ObjectId
 
@@ -18,6 +21,8 @@ from app.database import DatabaseContext
 
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from passlib.hash import bcrypt
+import pandas as pd
+from fastapi.responses import HTMLResponse
 
 security = HTTPBasic()
 router = APIRouter()
@@ -67,6 +72,70 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Basic"},
         )
     return user
+
+@router.get("/updatecampaigns", response_class=HTMLResponse)
+def form_get():
+    return '''<form enctype = "multipart/form-data" method="post">
+    <input type="file" name="csv_file"/>
+    <input type="submit"/>
+    </form>'''
+
+@router.post("/updatecampaigns") #File must be a CSV and must have the column names User Name, Campaign and Segment Id. There must be no blank cells
+async def create_upload_file(
+    csv_file: UploadFile = File(...),
+    db: DatabaseContext = Depends(get_db)
+):
+    df = pd.read_csv(csv_file.file)
+    username = ''
+    for ind in df.index:
+        if df['User Name'][ind] == username:
+            await db.append_segment(username, df['Segment Id'][ind])
+        else:
+            username = df['User Name'][ind]
+            await db.new_segments(username, df['Campaign'][ind], df['Segment Id'][ind])
+    return 'Annotator campaigns have been updated successfully'
+
+@router.get("/resetpassword", response_class=HTMLResponse)
+def form_get():
+    return '''<form method="post">
+    <input type="text" name="username" value="Enter Username"/>
+    <input type="text" name="newpassword" value="Enter New Password"/>
+    <input type="submit"/>
+    </form>'''
+
+@router.post("/resetpassword")
+async def passwordreset(
+    username: str = Form(...),
+    newpassword: str = Form(...),
+    db: DatabaseContext = Depends(get_db)
+):
+    encrypted = bcrypt.hash(newpassword)
+    pass_reset = await db.reset_password(username, encrypted)
+    if pass_reset:
+        return 'Password Reset Was Successful'
+    return 'Password Reset Failed. Please ensure username is correct'
+
+@router.get("/adduser", response_class=HTMLResponse)
+def form_get():
+    return '''<form method="post">
+    <input type="text" name="name" value="Enter First and Last Name"/>
+    <input type="text" name="username" value="Enter Username"/>
+    <input type="text" name="designation" value="Enter Designation"/>
+    <input type="text" name="password" value="Enter New Password"/>
+    <input type="submit"/>
+    </form>'''
+
+@router.post("/adduser")
+async def passwordreset(
+    name: str = Form(...),
+    username: str = Form(...),
+    designation: str = Form(...),
+    password: str = Form(...),
+    db: DatabaseContext = Depends(get_db)
+):
+    encrypted = bcrypt.hash(password)
+    await db.add_user(name, username, designation, encrypted)
+    return 'A new user has been added'
 
 
 @router.get("/annotators")
@@ -189,4 +258,3 @@ def get_classes(_: str = Depends(get_current_user)):
             "description": "unsure/none of the above",
         },
     ]
-

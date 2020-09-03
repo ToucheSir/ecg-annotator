@@ -59,6 +59,7 @@ class SegmentRecord(HasId):
 
 
 class AuditEvent(BaseModel):
+    username: str
     timestamp: datetime
     route: str
     url: str

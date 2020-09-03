@@ -33,8 +33,29 @@ async def get_db(settings: Settings = Depends(get_settings)):
         yield db
 
 
+def verify_password(plain_password, hashed_password: SecretStr):
+    return bcrypt.verify(plain_password, hashed_password.get_secret_value())
+
+
+async def get_current_user(
+    credentials: HTTPBasicCredentials = Depends(security),
+    db: DatabaseContext = Depends(get_db),
+) -> Annotator:
+    user = await db.get_annotator(credentials.username)
+    if not user or not verify_password(credentials.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return user
+
+
 async def audit_handler(
-    request: Request, background: BackgroundTasks, db: DatabaseContext = Depends(get_db)
+    request: Request,
+    background: BackgroundTasks,
+    user: Annotator = Depends(get_current_user),
+    db: DatabaseContext = Depends(get_db),
 ):
     body = None
     if (
@@ -44,6 +65,7 @@ async def audit_handler(
         body = await request.json()
 
     audit_event = AuditEvent(
+        username=user.username,
         # Ref. https://api.mongodb.com/python/current/examples/datetimes.html#basic-usage
         timestamp=datetime.utcnow(),
         route=request["endpoint"].__name__,

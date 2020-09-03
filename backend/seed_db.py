@@ -84,8 +84,7 @@ if __name__ == "__main__":
             "$set": {
                 "current_campaign": {
                     "name": "training",
-                    "segments": segment_ids,
-                    "completed": 0,
+                    "segments": segment_ids
                 }
             }
         },

@@ -31,7 +31,8 @@ class Annotator(HasId):
     designation: str
     hashed_password: Optional[SecretStr]
 
-    current_campaign: AnnotationCampaign
+    current_campaign: Optional[AnnotationCampaign]
+    previous_campaigns: List[AnnotationCampaign] = []
 
 
 class Annotation(BaseModel):

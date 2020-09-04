@@ -7,7 +7,6 @@ class Settings(BaseSettings):
     db_name: str = "conduit"
     db_user: str
     db_pass: str
-    db_segment_collection: str = "segment_records"
 
     class Config:
         env_file = ".env"

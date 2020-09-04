@@ -1,5 +1,9 @@
+import csv
+import json
+from io import TextIOWrapper
+from collections import defaultdict
 from datetime import datetime
-from typing import List, Optional
+from typing import DefaultDict, List, Optional, Set, Tuple
 
 from fastapi import (
     APIRouter,
@@ -11,7 +15,7 @@ from fastapi import (
     status,
     Form,
     File,
-    UploadFile
+    UploadFile,
 )
 from bson import ObjectId
 
@@ -21,7 +25,6 @@ from app.database import DatabaseContext
 
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from passlib.hash import bcrypt
-import pandas as pd
 from fastapi.responses import HTMLResponse
 
 security = HTTPBasic()
@@ -78,86 +81,77 @@ async def audit_handler(
     background.add_task(db.add_audit_event, audit_event)
 
 
-def verify_password(plain_password, hashed_password: SecretStr):
-    return bcrypt.verify(plain_password, hashed_password.get_secret_value())
-
-
-async def get_current_user(
-    credentials: HTTPBasicCredentials = Depends(security),
-    db: DatabaseContext = Depends(get_db),
-) -> Annotator:
-    user = await db.get_annotator(credentials.username)
-    if not user or not verify_password(credentials.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Basic"},
-        )
-    return user
-
-@router.get("/updatecampaigns", response_class=HTMLResponse)
+@router.get("/admin/updatecampaigns", response_class=HTMLResponse)
 def form_get():
-    return '''<form enctype = "multipart/form-data" method="post">
-    <input type="file" name="csv_file"/>
+    return """<form enctype="multipart/form-data" method="post">
+    <input type="file" name="campaigns"/>
     <input type="submit"/>
-    </form>'''
+    </form>"""
 
-@router.post("/updatecampaigns") #File must be a CSV and must have the column names User Name, Campaign and Segment Id. There must be no blank cells
+
+# File must be a CSV and must have the column names User Name, Campaign and Segment Id.
+# There must be no blank cells
+@router.post("/admin/updatecampaigns")
 async def create_upload_file(
-    csv_file: UploadFile = File(...),
-    db: DatabaseContext = Depends(get_db)
+    campaigns: UploadFile = File(...), db: DatabaseContext = Depends(get_db),
 ):
-    df = pd.read_csv(csv_file.file)
-    username = ''
-    for ind in df.index:
-        if df['User Name'][ind] == username:
-            await db.append_segment(username, df['Segment Id'][ind])
-        else:
-            username = df['User Name'][ind]
-            await db.new_segments(username, df['Campaign'][ind], df['Segment Id'][ind])
-    return 'Annotator campaigns have been updated successfully'
+    new_campaigns = json.load(campaigns.file)
+    for (username, campaign) in new_campaigns.items():
+        await db.set_campaign(
+            username,
+            AnnotationCampaign(
+                name=campaign["name"],
+                segments=list(map(ObjectId, campaign["segments"])),
+            ),
+        )
 
-@router.get("/resetpassword", response_class=HTMLResponse)
+    return "Annotator campaigns have been updated successfully"
+
+
+@router.get("/admin/resetpassword", response_class=HTMLResponse)
 def form_get():
-    return '''<form method="post">
-    <input type="text" name="username" value="Enter Username"/>
-    <input type="text" name="newpassword" value="Enter New Password"/>
+    return """<form method="post">
+    <input type="text" name="username" placeholder="Username"/>
+    <input type="text" name="newpassword" placeholder="New Password"/>
     <input type="submit"/>
-    </form>'''
+    </form>"""
 
-@router.post("/resetpassword")
+
+@router.post("/admin/resetpassword")
 async def passwordreset(
     username: str = Form(...),
     newpassword: str = Form(...),
-    db: DatabaseContext = Depends(get_db)
+    db: DatabaseContext = Depends(get_db),
 ):
     encrypted = bcrypt.hash(newpassword)
     pass_reset = await db.reset_password(username, encrypted)
     if pass_reset:
-        return 'Password Reset Was Successful'
-    return 'Password Reset Failed. Please ensure username is correct'
+        return "Password Reset Was Successful"
+    return "Password Reset Failed. Please ensure username is correct"
 
-@router.get("/adduser", response_class=HTMLResponse)
+
+@router.get("/admin/adduser", response_class=HTMLResponse)
 def form_get():
-    return '''<form method="post">
-    <input type="text" name="name" value="Enter First and Last Name"/>
-    <input type="text" name="username" value="Enter Username"/>
-    <input type="text" name="designation" value="Enter Designation"/>
-    <input type="text" name="password" value="Enter New Password"/>
+    return """<form method="post">
+    <input type="text" name="name" placeholder="First and Last Name"/>
+    <input type="text" name="username" placeholder="Username"/>
+    <input type="text" name="designation" placeholder="Designation"/>
+    <input type="text" name="password" placeholder="Password"/>
     <input type="submit"/>
-    </form>'''
+    </form>"""
 
-@router.post("/adduser")
+
+@router.post("/admin/adduser")
 async def passwordreset(
     name: str = Form(...),
     username: str = Form(...),
     designation: str = Form(...),
     password: str = Form(...),
-    db: DatabaseContext = Depends(get_db)
+    db: DatabaseContext = Depends(get_db),
 ):
     encrypted = bcrypt.hash(password)
     await db.add_user(name, username, designation, encrypted)
-    return 'A new user has been added'
+    return "A new user has been added"
 
 
 @router.get("/annotators")

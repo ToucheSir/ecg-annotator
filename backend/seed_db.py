@@ -67,7 +67,7 @@ if __name__ == "__main__":
     )
     db = client.get_database(settings.db_name)
     annotators = db.get_collection("annotators")
-    segments = db.get_collection(settings.db_segment_collection)
+    segments = db.get_collection("segment_records")
 
     with client.start_session() as sess:
         annotators.drop(session=sess)

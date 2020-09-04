@@ -24,7 +24,7 @@ class DatabaseContext:
         )
         db: Database = self.client[settings.db_name]
         self.annotators: Collection = db.get_collection("annotators")
-        self.segments: Collection = db.get_collection(settings.db_segment_collection)
+        self.segments: Collection = db.get_collection("segment_records")
         self.audit_events: Collection = db.get_collection("audit_events")
 
     def __enter__(self):
@@ -33,48 +33,38 @@ class DatabaseContext:
     def __exit__(self, *_):
         self.client.close()
 
-    async def append_segment(self, username: str, segment: ObjectId):
-        res = await self.annotators.find_one_and_update(
+    async def set_campaign(self, username: str, campaign: AnnotationCampaign):
+        return await self.annotators.update_one(
             {"username": username},
-            {"$addToSet": {"current_campaign.segments": ObjectId(segment) }}
+            [
+                {
+                    "$set": {
+                        "previous_campaigns": {
+                            "$concatArrays": [
+                                ["$current_campaign"],
+                                "$previous_campaigns",
+                            ]
+                        },
+                        "current_campaign": campaign.dict(),
+                    },
+                },
+            ],
         )
-        return
 
-    async def new_segments(self, username: str, campaign: str, segment: ObjectId):
-        res = await self.annotators.find_one_and_update(
-            {"username": username},
-            { "$set": {
-                "current_campaign": {
-                    "name": campaign,
-                    "segments": [ObjectId(segment)],
-                    "completed": 0,
-                    }
-                }
-            }
+    async def reset_password(self, username: str, hashed_password: str):
+        return await self.annotators.update_one(
+            {"username": username}, {"$set": {"hashed_password": hashed_password}}
         )
-        return
-
-    async def reset_password(self, username: str, password: str):
-        res = await self.annotators.find_one_and_update(
-            {"username": username},
-            {"$set": {"hashed_password": password}}
-        )
-        return res
 
     async def add_user(self, name: str, username: str, designation: str, password: str):
-        await self.annotators.insert_one(
-            {"name": name,
-             "username": username,
-             "designation": designation,
-             "hashed_password": password,
-             "current_campaign": {
-                 "name": "empty",
-                 "segments": [],
-                 "completed": 0,
-                 }
-             }
+        return await self.annotators.insert_one(
+            {
+                "name": name,
+                "username": username,
+                "designation": designation,
+                "hashed_password": password,
+            }
         )
-        return
 
     async def get_annotator(self, username: str) -> Optional[Annotator]:
         res = await self.annotators.find_one({"username": username})

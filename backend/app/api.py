@@ -216,57 +216,36 @@ async def update_segment_annotations(
 def get_classes(_: str = Depends(get_current_user)):
     # TODO lookup from db and add this as seed data
     return [
-        {"value": "SR", "name": "sinus rhythm", "description": "sinus rhythm"},
         {
-            "value": "AFIB",
-            "name": "atrial fibrillation",
-            "description": "atrial fibrillation",
+            "value": "SINUS",
+            "name": "sinus rhythm",
+            "description": "sinus rhythm (regardless of rate)",
         },
         {
-            "value": "STACH",
-            "name": "sinus tachycardia",
-            "description": "sinus tachycardia",
-        },
-        {
-            "value": "SARRH",
-            "name": "sinus arrhythmia",
-            "description": "sinus arrhythmia",
-        },
-        {
-            "value": "SBRAD",
-            "name": "sinus bradycardia",
-            "description": "sinus bradycardia",
+            "value": "AFIB_AFLT",
+            "name": "atrial fibrillation/flutter",
+            "description": "atrial fibrillation/flutter (regardless of rate)",
         },
         {
             "value": "PACE",
-            "name": "normal functioning artificial pacemaker",
-            "description": "normal functioning artificial pacemaker",
+            "name": "pacemaker",
+            "description": "pacemaker (regardless of rate, A vs V)",
+        },
+        {"value": "BIGEM_TRIGEM", "name": "bigemeny/trigemeny", "description": ""},
+        {
+            "value": "VTACH_VFIB",
+            "name": "vtach/vfib",
+            "description": "ventricular tachycardia/ventricular fibrillation",
         },
         {
-            "value": "SVARR",
-            "name": "supraventricular arrhythmia",
-            "description": "supraventricular arrhythmia",
+            "value": "OTHER_TACHY",
+            "name": "other tachyarrhythmia",
+            "description": "other tachyarrhythmia",
         },
         {
-            "value": "BIGU",
-            "name": "bigeminal pattern",
-            "description": "bigeminal pattern (unknown origin, SV or Ventricular)",
-        },
-        {"value": "AFLT", "name": "atrial flutter", "description": "atrial flutter"},
-        {
-            "value": "SVTAC",
-            "name": "supraventricular tachycardia",
-            "description": "supraventricular tachycardia",
-        },
-        {
-            "value": "PSVT",
-            "name": "paroxysmal supraventricular tachycardia",
-            "description": "paroxysmal supraventricular tachycardia",
-        },
-        {
-            "value": "TRIGU",
-            "name": "trigeminal pattern",
-            "description": "trigeminal pattern (unknown origin, SV or Ventricular)",
+            "value": "OTHER_BRADY",
+            "name": "other bradyarrhythmia",
+            "description": "other bradyarrhythmia",
         },
         {
             "value": "ABSTAIN",

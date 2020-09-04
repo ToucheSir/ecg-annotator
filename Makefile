@@ -9,7 +9,7 @@ init:
 backend: init
 	cp backend/*.py build
 	cp -r backend/app build
-	rm -r build/app/__pycache__
+	rm -r build/app/__pycache__ || true
 
 frontend: init
 	cd frontend && npm run build && cp -r build ../build/static

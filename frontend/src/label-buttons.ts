@@ -103,12 +103,6 @@ export default class LabelButtons extends LitElement {
     );
   }
 
-  shouldUpdate(changedProps: any) {
-    const res = super.shouldUpdate(changedProps);
-    console.log(changedProps);
-    return res;
-  }
-
   render() {
     return html`<div>
       <details open style="text-align: justify">

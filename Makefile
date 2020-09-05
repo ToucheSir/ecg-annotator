@@ -1,5 +1,5 @@
 all: backend frontend
-	tar -cvf annotator-`git rev-parse --short HEAD`.tar.gz build
+	tar -cvf annotator.tar.gz build
 
 .PHONY: all backend frontend
 

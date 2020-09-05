@@ -7,6 +7,7 @@ import {
   css,
 } from "lit-element";
 import { until } from "lit-html/directives/until";
+import { live } from "lit-html/directives/live";
 import dialogPolyfill from "dialog-polyfill";
 
 import "./label-buttons";
@@ -214,7 +215,7 @@ export default class AnnotatorApp extends LitElement {
           ></signal-view>
           <label-buttons
             id="button-bar"
-            .value=${annotation?.label ?? ""}
+            .value=${live(annotation?.label ?? "")}
             .options=${this.classes}
             @select-label=${this.saveAnnotation}
           ></label-buttons>

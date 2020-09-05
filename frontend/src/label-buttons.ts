@@ -103,6 +103,12 @@ export default class LabelButtons extends LitElement {
     );
   }
 
+  shouldUpdate(changedProps: any) {
+    const res = super.shouldUpdate(changedProps);
+    console.log(changedProps);
+    return res;
+  }
+
   render() {
     return html`<div>
       <details open style="text-align: justify">
@@ -122,6 +128,8 @@ export default class LabelButtons extends LitElement {
       </details>
       <form id="class-selection" @submit=${this.submitSelection}>
         ${repeat(this.options, (c, i) => {
+          console.log(c.value, this.value, c.value === this.value);
+
           return html`
             <div>
               <!-- using .checked ensures the state is updated instead set statically -->
@@ -132,12 +140,11 @@ export default class LabelButtons extends LitElement {
                 value=${c.value}
                 required
                 .checked=${c.value === this.value}
+                @change=${() => this.value = c.value}
               />
               <label for=${c.name}>
                 <kbd>${shortcutKeys[i]}</kbd>
-                <abbr title=${c.description}>
-                  ${c.name}
-                </abbr>
+                <abbr title=${c.description}> ${c.name} </abbr>
               </label>
             </div>
           `;

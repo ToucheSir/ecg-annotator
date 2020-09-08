@@ -78,15 +78,15 @@ export default class AnnotatorApp extends LitElement {
 
   async firstUpdated() {
     const [classes, annotator] = await Promise.all([
-      fetch("/api/classes").then((r) => r.json()),
-      fetch("/api/annotators/me").then<Annotator>((r) => r.json()),
+      fetch("api/classes").then((r) => r.json()),
+      fetch("api/annotators/me").then<Annotator>((r) => r.json()),
     ]);
     this.classes = classes;
     this.annotator = annotator;
     
     const campaign = annotator.current_campaign;
     this.segments = new SegmentCollection(
-      new URL("/api/segments", location.href),
+      new URL("api/segments", location.href),
       campaign
     );
     this.position = Math.min(
@@ -149,7 +149,7 @@ export default class AnnotatorApp extends LitElement {
     }
 
     const { username } = this.annotator;
-    const dataUrl = `/api/segments/${this.currentSegment._id}`;
+    const dataUrl = `api/segments/${this.currentSegment._id}`;
     const annotationUrl = `${dataUrl}/annotations/${username}`;
     const annotation: Annotation = { label, confidence: 1 };
     if (label === "ABSTAIN") {

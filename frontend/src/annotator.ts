@@ -38,6 +38,9 @@ export default class AnnotatorApp extends LitElement {
   @query("#abstain-dialog-template")
   private abstainDialogTemplate?: HTMLTemplateElement;
 
+  @property({ attribute: false })
+  private chartRendering = false;
+
   static styles = css`
     /* Source: https://developer.mozilla.org/en-US/docs/Web/HTML/Element/kbd */
     kbd {
@@ -83,7 +86,7 @@ export default class AnnotatorApp extends LitElement {
     ]);
     this.classes = classes;
     this.annotator = annotator;
-    
+
     const campaign = annotator.current_campaign;
     this.segments = new SegmentCollection(
       new URL("api/segments", location.href),
@@ -100,6 +103,7 @@ export default class AnnotatorApp extends LitElement {
 
   private async prevRecord() {
     if (this.segments && this.position > 0) {
+      this.chartRendering = true;
       this.currentSegment = await this.segments.get(
         --this.position,
         ScanDirection.Backwards
@@ -108,6 +112,7 @@ export default class AnnotatorApp extends LitElement {
   }
   private async nextRecord() {
     if (this.segments && this.position < this.segments.length - 1) {
+      this.chartRendering = true;
       this.currentSegment = await this.segments.get(
         ++this.position,
         ScanDirection.Forwards
@@ -170,12 +175,15 @@ export default class AnnotatorApp extends LitElement {
   }
 
   private updatedOr(cond: boolean) {
-    return until(this.updateComplete.then((x) => !x || cond));
+    return until(
+      this.updateComplete.then((x) => !x || this.chartRendering || cond)
+    );
   }
 
   render() {
+    const nSegments = this.segments?.length ?? 0;
     const segmentStats = this.segments
-      ? ` | Segment ${this.position + 1} / ${this.segments?.length}`
+      ? ` | Segment ${this.position + 1} / ${nSegments}`
       : "";
     const annotation = this.currentSegment?.annotations[
       this.annotator!.username
@@ -192,9 +200,7 @@ export default class AnnotatorApp extends LitElement {
             </button>
             <button
               @click=${this.nextRecord}
-              ?disabled=${this.updatedOr(
-                this.position >= (this.segments?.length ?? 0) - 1
-              )}
+              ?disabled=${this.updatedOr(this.position >= nSegments - 1)}
             >
               Next
             </button>`
@@ -212,11 +218,13 @@ export default class AnnotatorApp extends LitElement {
           <signal-view
             id="signals"
             .signals=${this.currentSegment?.signals ?? {}}
+            @draw-complete=${() => (this.chartRendering = false)}
           ></signal-view>
           <label-buttons
             id="button-bar"
             .value=${live(annotation?.label ?? "")}
             .options=${this.classes}
+            ?disabled=${this.chartRendering}
             @select-label=${this.saveAnnotation}
           ></label-buttons>
         </div>

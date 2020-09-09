@@ -29,6 +29,9 @@ export default class LabelButtons extends LitElement {
   @property({ attribute: false })
   options: { name: string; value: string; description: string }[] = [];
 
+  @property({ type: Boolean })
+  disabled = true;
+
   @property()
   value: string = "";
 
@@ -121,29 +124,32 @@ export default class LabelButtons extends LitElement {
         </ul>
       </details>
       <form id="class-selection" @submit=${this.submitSelection}>
-        ${repeat(this.options, (c, i) => {
-          console.log(c.value, this.value, c.value === this.value);
-
-          return html`
-            <div>
-              <!-- using .checked ensures the state is updated instead set statically -->
-              <input
-                type="radio"
-                id=${c.name}
-                name="label"
-                value=${c.value}
-                required
-                .checked=${c.value === this.value}
-                @change=${() => this.value = c.value}
-              />
-              <label for=${c.name}>
-                <kbd>${shortcutKeys[i]}</kbd>
-                <abbr title=${c.description}> ${c.name} </abbr>
-              </label>
-            </div>
-          `;
-        })}
-        <input type="submit" value="Submit" style="margin-top: 1em" />
+        ${repeat(
+          this.options,
+          (c, i) => html`<div>
+            <!-- using .checked ensures the state is updated instead of set statically -->
+            <input
+              type="radio"
+              id=${c.name}
+              name="label"
+              value=${c.value}
+              required
+              .checked=${c.value === this.value}
+              .disabled=${this.disabled}
+              @change=${() => (this.value = c.value)}
+            />
+            <label for=${c.name}>
+              <kbd>${shortcutKeys[i]}</kbd>
+              <abbr title=${c.description}> ${c.name} </abbr>
+            </label>
+          </div>`
+        )}
+        <input
+          type="submit"
+          value="Submit"
+          style="margin-top: 1em"
+          .disabled=${this.disabled}
+        />
       </form>
     </div>`;
   }

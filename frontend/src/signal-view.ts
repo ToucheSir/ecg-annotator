@@ -24,22 +24,27 @@ export default class SignalView extends LitElement {
       // TODO what if we want to display another lead or >1 lead?
       const signal = this.signals.I;
       const index = signal.map((_: any, i: number) => i / this.sampleRate);
-      this.view.setData([index, signal]);
-
-      const { width, height } = this.view;
       const yCells = cellCount(
         Math.min.apply(null, signal),
         Math.max.apply(null, signal),
         this.scaleFactor
       );
-      // 10s * 5 cells/s or 0.2s/cell
-      const yMax = (yCells * width) / 50;
-      // Height of axes labels, tooltips, etc.
-      // N.B. b(ounding) box dimensions are not pre-scaled by devicePixelRatio
-      const yDiff = Math.abs(height - this.view.bbox.height / devicePixelRatio);
-      this.view.setSize({
-        width,
-        height: 4 * yMax + yDiff,
+      this.view.batch(() => {
+        // const width = this.clientWidth;
+        this.view?.setData([index, signal], false);
+        const { width, height } = this.view!;
+
+        // 10s * 5 cells/s or 0.2s/cell
+        const yMax = (yCells * width) / 50;
+        // Height of axes labels, tooltips, etc.
+        // N.B. b(ounding) box dimensions are not pre-scaled by devicePixelRatio
+        const yDiff = Math.abs(
+          height - this.view!.bbox.height / devicePixelRatio
+        );
+        this.view?.setSize({
+          width: this.clientWidth,
+          height: 4 * yMax + yDiff,
+        });
       });
     }
   }
@@ -63,7 +68,7 @@ export default class SignalView extends LitElement {
           },
         ],
         scales: {
-          x: { time: true },
+          x: { time: true, min: 0, max: 10 },
           y: {
             // uPlot resets the y-axis after a double-click zoom out in the x-axis (!),
             // so we have to enforce cell clamping here
@@ -93,6 +98,9 @@ export default class SignalView extends LitElement {
             values: (_, ticks, __) => ticks.map((x) => x.toFixed(1)),
           },
         ],
+        hooks: {
+          draw: [() => this.dispatchEvent(new CustomEvent("draw-complete"))],
+        },
       },
       [[], []],
       this.renderRoot.querySelector(".chart-root") as HTMLElement

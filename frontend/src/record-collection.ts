@@ -60,6 +60,8 @@ export default class SegmentCollection {
     }
 
     const segmentId = this.segmentIds[i];
+    // Reset age so the current segment doesn't get invalidated if it's cached
+    this.cache.get(segmentId);
     const fetchIds = this.segmentIds
       .slice(...this.findRange(i, direction))
       .filter((id) => !this.cache.has(id));

@@ -12,6 +12,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from app.config import Settings, get_settings
 from app.models import *
 from bson import ObjectId
+from datetime import datetime
 
 
 class DatabaseContext:
@@ -26,12 +27,28 @@ class DatabaseContext:
         self.annotators: Collection = db.get_collection("annotators")
         self.segments: Collection = db.get_collection("segment_records")
         self.audit_events: Collection = db.get_collection("audit_events")
+        self.sessions: Collection = db.get_collection("active_sessions")
 
     def __enter__(self):
         return self
 
     def __exit__(self, *_):
         self.client.close()
+
+    async def active_session(self, user_IP: str):
+        return await self.sessions.find_one_and_update(
+                    {"user_IP": user_IP},
+                    {"$set":
+                        {"lastLoginAt": datetime.now()}
+                    }
+                )
+
+    async def create_session(self, user_IP: str):
+        await self.sessions.insert_one({
+            "lastLoginAt": datetime.now(),
+            "user_IP": user_IP
+        })
+        return
 
     async def set_campaign(self, username: str, campaign: AnnotationCampaign):
         return await self.annotators.update_one(

@@ -26,6 +26,7 @@ from app.database import DatabaseContext
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from passlib.hash import bcrypt
 from fastapi.responses import HTMLResponse
+import socket
 
 security = HTTPBasic()
 router = APIRouter()
@@ -45,12 +46,21 @@ async def get_current_user(
     db: DatabaseContext = Depends(get_db),
 ) -> Annotator:
     user = await db.get_annotator(credentials.username)
+    #Get users IP address
+    hostname = socket.gethostname()
+    ip_address = socket.gethostbyname(hostname)
+    #If user has an active session skip bcrypt validation:
+    if await db.active_session(ip_address):
+        return user
+    #Else try to login user
     if not user or not verify_password(credentials.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Basic"},
         )
+    #Create active session for newly logged in user
+    await db.create_session(ip_address)
     return user
 
 

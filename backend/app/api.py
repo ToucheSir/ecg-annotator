@@ -1,32 +1,31 @@
-import csv
 import json
-from io import TextIOWrapper
-from collections import defaultdict
+import secrets
+import socket
 from datetime import datetime
-from typing import DefaultDict, List, Optional, Set, Tuple
+from typing import List, Optional
 
+from bson import ObjectId
 from fastapi import (
     APIRouter,
-    Request,
     BackgroundTasks,
     Depends,
-    Query,
-    HTTPException,
-    status,
-    Form,
     File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    Response,
     UploadFile,
+    status,
 )
-from bson import ObjectId
-
-from app.config import Settings, get_settings
-from app.models import *
-from app.database import DatabaseContext
-
+from fastapi.param_functions import Cookie
+from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from passlib.hash import bcrypt
-from fastapi.responses import HTMLResponse
-import socket
+
+from app.config import Settings, get_settings
+from app.database import DatabaseContext
+from app.models import *
 
 security = HTTPBasic()
 router = APIRouter()
@@ -42,7 +41,9 @@ def verify_password(plain_password, hashed_password: SecretStr):
 
 
 async def get_current_user(
+    response: Response,
     credentials: HTTPBasicCredentials = Depends(security),
+    session_id: Optional[str] = Cookie(None),
     db: DatabaseContext = Depends(get_db),
 ) -> Annotator:
     user = await db.get_annotator(credentials.username)
@@ -50,7 +51,7 @@ async def get_current_user(
     hostname = socket.gethostname()
     ip_address = socket.gethostbyname(hostname)
     # If user has an active session skip bcrypt validation:
-    if await db.active_session(ip_address):
+    if session_id and await db.active_session(ip_address, session_id):
         return user
     # Else try to login user
     if not user or not verify_password(credentials.password, user.hashed_password):
@@ -60,7 +61,16 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Basic"},
         )
     # Create active session for newly logged in user
-    await db.create_session(ip_address)
+    session_id = secrets.token_urlsafe()
+    await db.create_session(ip_address, session_id)
+    response.set_cookie(
+        "session_id",
+        session_id,
+        secure=True,
+        httponly=True,
+        samesite="strict",
+        max_age=15 * 60,
+    )
     return user
 
 
@@ -87,7 +97,6 @@ async def audit_handler(
         query_params=request.query_params,
         body=body,
     )
-
     background.add_task(db.add_audit_event, audit_event)
 
 
@@ -206,7 +215,7 @@ async def get_segment(
     segment_id: str,
     annotator_username: str = Query(None, alias="annotator"),
     db: DatabaseContext = Depends(get_db),
-    username: str = Depends(get_current_user),
+    _=Depends(get_current_user),
 ):
     segment: SegmentRecord = await db.get_segment(ObjectId(segment_id))
     annotation = segment.annotations.get(annotator_username)
@@ -222,7 +231,7 @@ async def update_segment_annotations(
     annotator_username: str,
     annotation: Annotation,
     db: DatabaseContext = Depends(get_db),
-    username: str = Depends(get_current_user),
+    _=Depends(get_current_user),
 ):
     try:
         await db.update_annotation(ObjectId(segment_id), annotator_username, annotation)

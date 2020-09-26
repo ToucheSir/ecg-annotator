@@ -35,20 +35,20 @@ class DatabaseContext:
     def __exit__(self, *_):
         self.client.close()
 
-    async def active_session(self, user_IP: str):
+    async def active_session(self, user_ip: str, session_id: str):
         return await self.sessions.find_one_and_update(
-                    {"user_IP": user_IP},
-                    {"$set":
-                        {"lastLoginAt": datetime.now()}
-                    }
-                )
+            {"user_ip": user_ip, "session_id": session_id},
+            {"$set": {"last_login": datetime.utcnow()}},
+        )
 
-    async def create_session(self, user_IP: str):
-        await self.sessions.insert_one({
-            "lastLoginAt": datetime.now(),
-            "user_IP": user_IP
-        })
-        return
+    async def create_session(self, user_ip: str, session_id: str):
+        await self.sessions.insert_one(
+            {
+                "user_ip": user_ip,
+                "session_id": session_id,
+                "last_login": datetime.utcnow(),
+            }
+        )
 
     async def set_campaign(self, username: str, campaign: AnnotationCampaign):
         return await self.annotators.update_one(

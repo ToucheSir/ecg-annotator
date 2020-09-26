@@ -3,7 +3,7 @@ import random
 
 from app.config import get_settings
 from app.models import SegmentRecord
-from pymongo import MongoClient
+from pymongo import ASCENDING, HASHED, MongoClient
 from bson import ObjectId
 
 # bcrypt.hash("12345")
@@ -68,11 +68,19 @@ if __name__ == "__main__":
     db = client.get_database(settings.db_name)
     annotators = db.get_collection("annotators")
     segments = db.get_collection("segment_records")
+    sessions = db.get_collection("active_sessions")
 
     with client.start_session() as sess:
         annotators.drop(session=sess)
         segments.drop(session=sess)
+        sessions.drop(session=sess)
         db.get_collection("audit_events").drop(session=sess)
+
+        sessions.create_index(
+            [("user_ip", ASCENDING), ("session_id", HASHED)],
+            session=sess,
+        )
+        sessions.create_index("last_login", expireAfterSeconds=15 * 60, session=sess)
         with sess.start_transaction():
             annotators.insert_many(ANNOTATORS)
             segments.insert_many([generate_annotation(i) for i in range(N)])
@@ -80,12 +88,5 @@ if __name__ == "__main__":
     segment_ids = [s["_id"] for s in segments.find(projection=[])]
     annotators.update_many(
         {},
-        {
-            "$set": {
-                "current_campaign": {
-                    "name": "training",
-                    "segments": segment_ids
-                }
-            }
-        },
+        {"$set": {"current_campaign": {"name": "training", "segments": segment_ids}}},
     )

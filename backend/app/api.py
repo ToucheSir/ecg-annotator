@@ -46,20 +46,20 @@ async def get_current_user(
     db: DatabaseContext = Depends(get_db),
 ) -> Annotator:
     user = await db.get_annotator(credentials.username)
-    #Get users IP address
+    # Get users IP address
     hostname = socket.gethostname()
     ip_address = socket.gethostbyname(hostname)
-    #If user has an active session skip bcrypt validation:
+    # If user has an active session skip bcrypt validation:
     if await db.active_session(ip_address):
         return user
-    #Else try to login user
+    # Else try to login user
     if not user or not verify_password(credentials.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Basic"},
         )
-    #Create active session for newly logged in user
+    # Create active session for newly logged in user
     await db.create_session(ip_address)
     return user
 
@@ -103,7 +103,8 @@ def form_get():
 # There must be no blank cells
 @router.post("/admin/updatecampaigns")
 async def create_upload_file(
-    campaigns: UploadFile = File(...), db: DatabaseContext = Depends(get_db),
+    campaigns: UploadFile = File(...),
+    db: DatabaseContext = Depends(get_db),
 ):
     new_campaigns = json.load(campaigns.file)
     for (username, campaign) in new_campaigns.items():
@@ -128,7 +129,7 @@ def form_get():
 
 
 @router.post("/admin/resetpassword")
-async def passwordreset(
+async def password_reset(
     username: str = Form(...),
     newpassword: str = Form(...),
     db: DatabaseContext = Depends(get_db),
@@ -152,7 +153,7 @@ def form_get():
 
 
 @router.post("/admin/adduser")
-async def passwordreset(
+async def add_user(
     name: str = Form(...),
     username: str = Form(...),
     designation: str = Form(...),
@@ -160,7 +161,14 @@ async def passwordreset(
     db: DatabaseContext = Depends(get_db),
 ):
     encrypted = bcrypt.hash(password)
-    await db.add_user(name, username, designation, encrypted)
+    await db.add_user(
+        Annotator(
+            name=name,
+            username=username,
+            designation=designation,
+            hashed_password=encrypted,
+        )
+    )
     return "A new user has been added"
 
 

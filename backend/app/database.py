@@ -73,15 +73,8 @@ class DatabaseContext:
             {"username": username}, {"$set": {"hashed_password": hashed_password}}
         )
 
-    async def add_user(self, name: str, username: str, designation: str, password: str):
-        return await self.annotators.insert_one(
-            {
-                "name": name,
-                "username": username,
-                "designation": designation,
-                "hashed_password": password,
-            }
-        )
+    async def add_user(self, user: Annotator):
+        return await self.annotators.insert_one(user.dict())
 
     async def get_annotator(self, username: str) -> Optional[Annotator]:
         res = await self.annotators.find_one({"username": username})

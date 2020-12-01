@@ -1,7 +1,9 @@
 from datetime import datetime
-from typing import List, Optional, Any, Mapping
-from pydantic import BaseModel, BaseConfig, Field, SecretStr
+from typing import Any, List, Mapping, Optional, Union
+from uuid import UUID
+
 from bson import ObjectId
+from pydantic import BaseConfig, BaseModel, Field, SecretStr
 
 
 class HasId(BaseModel):
@@ -48,9 +50,9 @@ class Annotation(BaseModel):
 
 class SegmentRecord(HasId):
     case_id: str
-    # Points to annotation_pool collection
-    pool_segment: ObjectId
-    
+    # If ObjectId, points to annotation_pool collection
+    pool_segment: Union[ObjectId, UUID, str]
+
     start_idx: int
     stop_idx: int
     zero_padded: bool

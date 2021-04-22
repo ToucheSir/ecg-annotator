@@ -170,15 +170,7 @@ async def add_user(
     db: DatabaseContext = Depends(get_db),
 ):
     encrypted = bcrypt.hash(password)
-    await db.add_user(
-        Annotator(
-            _id=ObjectId(),
-            name=name,
-            username=username,
-            designation=designation,
-            hashed_password=encrypted,
-        )
-    )
+    await db.add_user(name, username, designation, encrypted)
     return "A new user has been added"
 
 

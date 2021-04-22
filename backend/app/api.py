@@ -172,6 +172,7 @@ async def add_user(
     encrypted = bcrypt.hash(password)
     await db.add_user(
         Annotator(
+            id=ObjectId(),
             name=name,
             username=username,
             designation=designation,
